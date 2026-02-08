@@ -1,18 +1,22 @@
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
+const PDFDocument = require('pdfkit'); // Importamos PDFKit al inicio
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// CONFIGURACIÓN DE LA BASE DE DATOS
+// ==========================================
+// 1. CONFIGURACIÓN DE BASE DE DATOS (CLOUD READY ☁️)
+// ==========================================
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'inventario_db',
-  password: 'portega321', // <--- ¡CAMBIA ESTO POR TU CLAVE REAL!
-  port: 5432,
+  // Si existe la variable de entorno (Nube), usa esa URL. 
+  // Si no (Local), usa tus credenciales locales (puedes dejarlas fijas o configurar variables locales).
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:portega321@localhost:5432/inventario_db',
+  
+  // Lógica SSL: Obligatorio para Render, falso para Localhost
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
 // PRUEBA DE CONEXIÓN
@@ -24,14 +28,15 @@ pool.connect((err) => {
   }
 });
 
-// RUTA DE PRUEBA
-// --- RUTAS DEL INVENTARIO ---
+// ==========================================
+// 2. RUTAS DEL SISTEMA
+// ==========================================
 
-// 1. OBTENER TODOS LOS PRODUCTOS (GET)
-// 1. OBTENER TODOS LOS PRODUCTOS (GET)
+// --- PRODUCTOS ---
+
+// Obtener todos
 app.get('/productos', async (req, res) => {
   try {
-    // AGREGAMOS "ORDER BY id ASC" PARA QUE NO SALTEN
     const todosLosProductos = await pool.query('SELECT * FROM productos ORDER BY id ASC');
     res.json(todosLosProductos.rows);
   } catch (err) {
@@ -40,8 +45,7 @@ app.get('/productos', async (req, res) => {
   }
 });
 
-  // 2. CREAR UN NUEVO PRODUCTO (POST)
-// 2. CREAR UN NUEVO PRODUCTO (POST)
+// Crear producto
 app.post('/productos', async (req, res) => {
   try {
     const { nombre, sku, precio_costo, precio_venta, stock_actual, categoria } = req.body;
@@ -58,12 +62,27 @@ app.post('/productos', async (req, res) => {
   }
 });
 
-// Busca la ruta app.post('/movimientos'...) y cámbiala por esta:
+// Eliminar producto (Cascada manual)
+app.delete('/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM movimientos WHERE id_producto = $1', [id]);
+    await pool.query('DELETE FROM productos WHERE id = $1', [id]);
+    res.json({ mensaje: "Producto eliminado correctamente" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al eliminar producto');
+  }
+});
+
+// --- MOVIMIENTOS Y STOCK ---
+
+// Registrar movimiento (Entrada/Salida)
 app.post('/movimientos', async (req, res) => {
-  const { id_producto, tipo, cantidad, id_obra } = req.body; // <--- OJO: Recibimos id_obra
+  const { id_producto, tipo, cantidad, id_obra } = req.body; 
   
   try {
-    // 1. Guardar movimiento con la obra
+    // 1. Guardar movimiento
     await pool.query(
       "INSERT INTO movimientos (id_producto, tipo, cantidad, id_obra) VALUES ($1, $2, $3, $4)",
       [id_producto, tipo, cantidad, id_obra]
@@ -83,43 +102,7 @@ app.post('/movimientos', async (req, res) => {
   }
 });
 
-app.get('/obras', async (req, res) => {
-  const obras = await pool.query('SELECT * FROM obras ORDER BY id ASC');
-  res.json(obras.rows);
-});
-
-app.post('/obras', async (req, res) => {
-  const { nombre, cliente, presupuesto } = req.body;
-  await pool.query("INSERT INTO obras (nombre, cliente, presupuesto) VALUES ($1, $2, $3)", [nombre, cliente, presupuesto]);
-  res.json({ mensaje: "Obra creada" });
-});
-
-// 4. LOGIN (Verificar usuario)
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    // Buscamos al usuario en la BD
-    const resultado = await pool.query(
-      'SELECT * FROM usuarios WHERE email = $1 AND password = $2', 
-      [email, password]
-    );
-
-    if (resultado.rows.length > 0) {
-      // Si existe, devolvemos éxito y los datos (sin la clave)
-      const usuario = resultado.rows[0];
-      res.json({ success: true, nombre: usuario.nombre, email: usuario.email });
-    } else {
-      // Si no existe o clave mal, error 401 (No autorizado)
-      res.status(401).json({ success: false, mensaje: "Credenciales incorrectas" });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Error en el servidor');
-  }
-});
-
-// 5. VER HISTORIAL COMPLETO (MEJORADO CON OBRAS)
+// Ver historial completo
 app.get('/movimientos', async (req, res) => {
   try {
     const query = `
@@ -137,16 +120,80 @@ app.get('/movimientos', async (req, res) => {
   }
 });
 
+// Eliminar movimiento
+app.delete('/movimientos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM movimientos WHERE id = $1', [id]);
+    res.json({ mensaje: "Registro de historial eliminado" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al eliminar movimiento');
+  }
+});
 
-// --- NUEVO: IMPORTAR PDFKIT ---
-const PDFDocument = require('pdfkit');
+// --- OBRAS ---
 
-// 6. GENERAR REPORTE PDF (DISEÑO EJECUTIVO - AJUSTADO A 1 PÁGINA)
+// Obtener obras
+app.get('/obras', async (req, res) => {
+  const obras = await pool.query('SELECT * FROM obras ORDER BY id ASC');
+  res.json(obras.rows);
+});
+
+// Crear obra
+app.post('/obras', async (req, res) => {
+  const { nombre, cliente, presupuesto } = req.body;
+  await pool.query("INSERT INTO obras (nombre, cliente, presupuesto) VALUES ($1, $2, $3)", [nombre, cliente, presupuesto]);
+  res.json({ mensaje: "Obra creada" });
+});
+
+// Eliminar obra (Protegida)
+app.delete('/obras/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (id == 1) { 
+    return res.status(403).json({ message: "⛔ Error Crítico: No puedes eliminar la Bodega Central." });
+  }
+
+  try {
+    await pool.query('DELETE FROM movimientos WHERE id_obra = $1', [id]);
+    await pool.query('DELETE FROM obras WHERE id = $1', [id]);
+    res.json({ mensaje: "Obra eliminada" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al eliminar obra');
+  }
+});
+
+// --- AUTENTICACIÓN ---
+
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const resultado = await pool.query(
+      'SELECT * FROM usuarios WHERE email = $1 AND password = $2', 
+      [email, password]
+    );
+
+    if (resultado.rows.length > 0) {
+      const usuario = resultado.rows[0];
+      res.json({ success: true, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol });
+    } else {
+      res.status(401).json({ success: false, mensaje: "Credenciales incorrectas" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Error en el servidor');
+  }
+});
+
+// ==========================================
+// 3. GENERACIÓN DE REPORTES PDF
+// ==========================================
 app.get('/reporte-pdf', async (req, res) => {
   try {
     const { busqueda, categoria } = req.query; 
     
-    // --- CONSULTA SQL (Mantiene filtros si los usas, sino trae todo) ---
     let queryText = 'SELECT * FROM productos';
     const queryParams = [];
     const conditions = [];
@@ -166,35 +213,31 @@ app.get('/reporte-pdf', async (req, res) => {
 
     const productos = await pool.query(queryText, queryParams);
 
-    // --- INICIO PDF ---
-    const PDFDocument = require('pdfkit');
-    // Margen inferior reducido (30) para aprovechar el pie de página
+    // Configuración PDF
     const doc = new PDFDocument({ margin: 40, margins: { top: 40, bottom: 30, left: 40, right: 40 }, size: 'A4' });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=inventario_ejecutivo.pdf');
     doc.pipe(res);
 
-    // VARIABLES DE DISEÑO (Tus colores favoritos)
     const colorPrincipal = '#2563eb'; 
     const colorSecundario = '#64748b';
-    const colorFondoTabla = '#f8fafc'; // Gris muy suave
+    const colorFondoTabla = '#f8fafc';
 
-    // --- 1. CABECERA ---
-    doc.rect(0, 0, 600, 85).fill(colorPrincipal); // Banda azul
+    // Cabecera
+    doc.rect(0, 0, 600, 85).fill(colorPrincipal);
     doc.fontSize(24).fillColor('white').text('ObraLink', 40, 25);
     doc.fontSize(10).text('SISTEMA DE CONTROL INTELIGENTE', 40, 52, { characterSpacing: 2 });
 
-    // Cuadro de fecha flotante
     doc.roundedRect(420, 20, 140, 45, 4).fill('white');
     doc.fillColor('black').fontSize(9).font('Helvetica-Bold').text('REPORTE', 430, 30);
     doc.font('Helvetica').fontSize(8).text(new Date().toLocaleDateString('es-CL'), 430, 45);
     doc.text(new Date().toLocaleTimeString('es-CL'), 510, 45);
 
-    doc.moveDown(3.5); // Espacio justo
+    doc.moveDown(3.5);
 
-    // --- 2. TABLA ---
-    let y = 100; // Iniciamos la tabla más arriba para ganar espacio
+    // Tabla
+    let y = 100;
     const colProd = 40; const colCat = 220; const colStock = 320; const colCosto = 380; const colTotal = 460;
 
     const dibujarEncabezados = () => {
@@ -216,7 +259,6 @@ app.get('/reporte-pdf', async (req, res) => {
     doc.font('Helvetica').fontSize(9);
 
     productos.rows.forEach((prod, index) => {
-        // Salto de página inteligente: Si llegamos muy abajo (720px), nueva página
         if (y > 720) { 
             doc.addPage(); 
             y = 50; 
@@ -224,7 +266,6 @@ app.get('/reporte-pdf', async (req, res) => {
             doc.font('Helvetica').fontSize(9); 
         }
         
-        // Fondo gris en filas pares (Efecto Cebra)
         if (index % 2 === 0) { doc.rect(30, y - 4, 540, 22).fill(colorFondoTabla); }
 
         const valorItem = prod.stock_actual * prod.precio_costo;
@@ -237,7 +278,6 @@ app.get('/reporte-pdf', async (req, res) => {
         
         doc.fontSize(8).fillColor('black').text(prod.categoria || 'General', colCat, y + 4);
         
-        // Stock en rojo si es crítico
         if (prod.stock_actual < 10) doc.fillColor('#dc2626').font('Helvetica-Bold');
         else doc.fillColor('black').font('Helvetica');
         
@@ -247,16 +287,13 @@ app.get('/reporte-pdf', async (req, res) => {
         doc.text('$' + parseInt(prod.precio_costo).toLocaleString('es-CL'), colCosto, y + 4, { width: 70, align: 'right' });
         doc.font('Helvetica-Bold').text('$' + valorItem.toLocaleString('es-CL'), colTotal, y + 4, { width: 70, align: 'right' });
 
-        y += 22; // Filas más compactas (altura 22px)
+        y += 22;
     });
 
-    // --- 3. RESUMEN FINAL Y FIRMAS ---
-    
-    // Verificamos si cabe el resumen (necesita ~120px)
+    // Resumen y Firmas
     if (y > 650) { doc.addPage(); y = 50; }
-    else { y += 10; } // Separación pequeña
+    else { y += 10; }
 
-    // Cuadro de Resumen Ejecutivo
     doc.rect(340, y, 210, 60).fill('#f1f5f9').stroke('#cbd5e1');
     doc.fillColor(colorPrincipal).font('Helvetica-Bold').fontSize(10).text('RESUMEN EJECUTIVO', 350, y + 10);
     
@@ -267,7 +304,6 @@ app.get('/reporte-pdf', async (req, res) => {
     doc.font('Helvetica-Bold').text('Valorización Total:', 350, y + 45);
     doc.fillColor('#16a34a').text('$' + valorTotalBodega.toLocaleString('es-CL'), 460, y + 45, { align: 'right', width: 80 });
 
-    // Firmas al pie de la página
     const bottomY = doc.page.height - 70;
     
     doc.moveTo(50, bottomY).lineTo(200, bottomY).stroke('black');
@@ -276,7 +312,6 @@ app.get('/reporte-pdf', async (req, res) => {
     doc.moveTo(350, bottomY).lineTo(500, bottomY).stroke('black');
     doc.text('Firma Administrador', 350, bottomY + 5, { width: 150, align: 'center' });
 
-    // Numeración
     doc.text('Página 1 de 1', 0, bottomY + 20, { align: 'center', width: 600 });
 
     doc.end();
@@ -287,57 +322,10 @@ app.get('/reporte-pdf', async (req, res) => {
   }
 });
 
-// 7. ELIMINAR PRODUCTO (Cascada: Borra sus movimientos primero)
-app.delete('/productos/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Primero limpiamos el historial de ese producto para evitar errores de base de datos
-    await pool.query('DELETE FROM movimientos WHERE id_producto = $1', [id]);
-    // Ahora sí borramos el producto
-    await pool.query('DELETE FROM productos WHERE id = $1', [id]);
-    res.json({ mensaje: "Producto eliminado correctamente" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Error al eliminar producto');
-  }
-});
-
-// 8. ELIMINAR MOVIMIENTO (Historial)
-app.delete('/movimientos/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query('DELETE FROM movimientos WHERE id = $1', [id]);
-    res.json({ mensaje: "Registro de historial eliminado" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Error al eliminar movimiento');
-  }
-});
-
-// 9. ELIMINAR OBRA (CON PROTECCIÓN PARA BODEGA CENTRAL)
-app.delete('/obras/:id', async (req, res) => {
-  const { id } = req.params;
-
-  // --- CANDADO DE SEGURIDAD ---
-  // Asumimos que la Bodega Central es la ID 1 o protegemos por lógica
-  if (id == 1) { 
-    return res.status(403).json({ message: "⛔ Error Crítico: No puedes eliminar la Bodega Central." });
-  }
-  // -----------------------------
-
-  try {
-    await pool.query('DELETE FROM movimientos WHERE id_obra = $1', [id]);
-    await pool.query('DELETE FROM obras WHERE id = $1', [id]);
-    res.json({ mensaje: "Obra eliminada" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Error al eliminar obra');
-  }
-});
-
-// INICIAR SERVIDOR EN PUERTO 3000
-// En backend/index.js
-const port = process.env.PORT || 3000; // Usa el puerto de la nube O el 3000
+// ==========================================
+// 4. INICIO DEL SERVIDOR
+// ==========================================
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Servidor corriendo en el puerto ${port}`);
+  console.log(`🚀 Servidor corriendo en el puerto ${port}`);
 });
