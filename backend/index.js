@@ -322,6 +322,23 @@ app.get('/reporte-pdf', async (req, res) => {
   }
 });
 
+// 10. EDITAR PRODUCTO (PUT)
+app.put('/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, categoria, precio_costo } = req.body;
+  
+  try {
+    await pool.query(
+      'UPDATE productos SET nombre = $1, categoria = $2, precio_costo = $3 WHERE id = $4',
+      [nombre, categoria, precio_costo, id]
+    );
+    res.json({ mensaje: "Producto actualizado correctamente" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al actualizar producto');
+  }
+});
+
 // ==========================================
 // 4. INICIO DEL SERVIDOR
 // ==========================================
