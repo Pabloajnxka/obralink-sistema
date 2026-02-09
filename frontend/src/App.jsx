@@ -279,10 +279,11 @@ function App() {
 
       {/* 2. MENÚ LATERAL */}
       <aside className={`
-        fixed inset-y-0 left-0 transform ${menuMovilAbierto ? 'translate-x-0' : '-translate-x-full'} 
-        md:relative md:translate-x-0 transition duration-300 ease-in-out
-        w-64 bg-slate-800 text-slate-300 flex-shrink-0 z-40 h-full flex flex-col shadow-2xl md:shadow-none
+      fixed inset-y-0 left-0 transform ${menuMovilAbierto ? 'translate-x-0' : '-translate-x-full'} 
+      md:relative md:translate-x-0 transition duration-300 ease-in-out
+      w-64 bg-slate-800 text-slate-300 flex-shrink-0 z-40 min-h-screen flex flex-col shadow-2xl md:shadow-none
       `}>
+        
         <div className="h-14 hidden md:flex items-center px-6 bg-slate-900 font-bold text-white text-lg tracking-wider border-b border-slate-700">
           <span className="text-blue-500 mr-2">●</span> ObraLink
         </div>
