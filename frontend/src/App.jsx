@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 // ==========================================
-// 1. ÍCONOS SVG (Incluye nuevo IconoEdit)
+// 1. ÍCONOS SVG
 // ==========================================
 const IconoHome = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -45,7 +45,6 @@ const IconoMenu = () => (
 const IconoClose = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 )
-// NUEVO ICONO EDITAR
 const IconoEdit = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
 )
@@ -71,7 +70,7 @@ function App() {
   const [filtroTipoHistorial, setFiltroTipoHistorial] = useState('TODOS')
 
   const [formulario, setFormulario] = useState({ nombre: '', sku: '', precio_costo: '', categoria: '' })
-  const [idEditando, setIdEditando] = useState(null) // NUEVO: Estado para saber si editamos
+  const [idEditando, setIdEditando] = useState(null)
 
   const [formObra, setFormObra] = useState({ nombre: '', cliente: '', presupuesto: '' })
   const [movimientoData, setMovimientoData] = useState({ id_producto: '', cantidad: '', id_obra: '' })
@@ -141,48 +140,42 @@ function App() {
     } catch (e) { console.error("Error cargando datos:", e); } 
   }
 
-  // --- LOGICA MODIFICADA PARA GUARDAR O EDITAR ---
-// Busca esta función y REEMPLÁZALA completa:
-const guardarMaterial = async (e) => { 
-  e.preventDefault(); 
-  
-  if (idEditando) {
-     // MODO EDICIÓN
-     await fetch(`${API_URL}/productos/${idEditando}`, { 
-        method: 'PUT', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(formulario) 
-     });
-     alert("✅ Producto actualizado correctamente");
-     setIdEditando(null);
-     cambiarMenu('Almacén'); // <--- ¡ESTA LÍNEA ES LA MAGIA! (Te devuelve a la lista)
-  } else {
-     // MODO CREACIÓN
-     const prefix = formulario.nombre ? formulario.nombre.substring(0, 3).toUpperCase() : 'GEN';
-     const randomNum = Math.floor(1000 + Math.random() * 9000);
-     const skuAutomatico = `${prefix}-${randomNum}`;
-     await fetch(`${API_URL}/productos`, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ ...formulario, sku: skuAutomatico, precio_venta: 0, stock_actual: 0 }) 
-     }); 
-     alert(`✅ Producto creado exitosamente.\nSKU Asignado: ${skuAutomatico}`);
+  const guardarMaterial = async (e) => { 
+    e.preventDefault(); 
+
+    if (idEditando) {
+       await fetch(`${API_URL}/productos/${idEditando}`, { 
+          method: 'PUT', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify(formulario) 
+       });
+       alert("✅ Producto actualizado correctamente");
+       setIdEditando(null); 
+       cambiarMenu('Almacén'); 
+    } else {
+       const prefix = formulario.nombre ? formulario.nombre.substring(0, 3).toUpperCase() : 'GEN';
+       const randomNum = Math.floor(1000 + Math.random() * 9000);
+       const skuAutomatico = `${prefix}-${randomNum}`;
+       await fetch(`${API_URL}/productos`, { 
+         method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+         body: JSON.stringify({ ...formulario, sku: skuAutomatico, precio_venta: 0, stock_actual: 0 }) 
+       }); 
+       alert(`✅ Producto creado exitosamente.\nSKU Asignado: ${skuAutomatico}`);
+    }
+
+    setFormulario({ nombre: '', sku: '', precio_costo: '', categoria: '' }); 
+    obtenerDatos(); 
   }
 
-  setFormulario({ nombre: '', sku: '', precio_costo: '', categoria: '' }); 
-  obtenerDatos(); 
-}
-
-  // NUEVA FUNCION: PREPARAR EDICION
   const cargarProductoParaEditar = (prod) => {
      setFormulario({
         nombre: prod.nombre,
-        sku: prod.sku, // El SKU no se edita en el backend, pero lo mostramos
+        sku: prod.sku, 
         precio_costo: prod.precio_costo,
         categoria: prod.categoria
      });
      setIdEditando(prod.id);
-     cambiarMenu('Catálogo'); // Llevamos al usuario al formulario
+     cambiarMenu('Crear Producto'); // <--- CAMBIO AQUÍ: Ahora redirige a 'Crear Producto'
   }
   
   const guardarObra = async (e) => { 
@@ -282,11 +275,10 @@ const guardarMaterial = async (e) => {
 
       {/* 2. MENÚ LATERAL */}
       <aside className={`
-      fixed inset-y-0 left-0 transform ${menuMovilAbierto ? 'translate-x-0' : '-translate-x-full'} 
-      md:relative md:translate-x-0 transition duration-300 ease-in-out
-      w-64 bg-slate-800 text-slate-300 flex-shrink-0 z-40 min-h-screen flex flex-col shadow-2xl md:shadow-none
+        fixed inset-y-0 left-0 transform ${menuMovilAbierto ? 'translate-x-0' : '-translate-x-full'} 
+        md:relative md:translate-x-0 transition duration-300 ease-in-out
+        w-64 bg-slate-800 text-slate-300 flex-shrink-0 z-40 min-h-screen flex flex-col shadow-2xl md:shadow-none
       `}>
-
         <div className="h-14 hidden md:flex items-center px-6 bg-slate-900 font-bold text-white text-lg tracking-wider border-b border-slate-700">
           <span className="text-blue-500 mr-2">●</span> ObraLink
         </div>
@@ -308,7 +300,8 @@ const guardarMaterial = async (e) => {
           <button onClick={()=>cambiarMenu('Salidas')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Salidas' ? 'bg-red-600 text-white' : ''}`}><IconoOut/><span className="ml-3">Salidas</span></button>
 
           <p className="px-6 text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider mt-4">Gestión</p>
-          <button onClick={()=>cambiarMenu('Catálogo')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Catálogo' ? 'bg-slate-700 text-white' : ''}`}><IconoTag/><span className="ml-3">Catálogo</span></button>
+          {/* AQUÍ CAMBIAMOS EL NOMBRE DEL MENÚ */}
+          <button onClick={()=>cambiarMenu('Crear Producto')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Crear Producto' ? 'bg-slate-700 text-white' : ''}`}><IconoTag/><span className="ml-3">Crear Producto</span></button>
           <button onClick={()=>cambiarMenu('Almacén')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Almacén' ? 'bg-slate-700 text-white' : ''}`}><IconoBox/><span className="ml-3">Almacén</span></button>
           <button onClick={()=>cambiarMenu('Obras')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Obras' ? 'bg-slate-700 text-white' : ''}`}><IconoBuilding/><span className="ml-3">Obras</span></button>
           <button onClick={()=>cambiarMenu('Historial')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Historial' ? 'bg-slate-700 text-white' : ''}`}><IconoHistory/><span className="ml-3">Historial</span></button>
@@ -393,11 +386,12 @@ const guardarMaterial = async (e) => {
              </div>
           )}
 
-          {/* VISTA: CATÁLOGO (MODIFICADA PARA EDITAR) */}
-          {menuActivo === 'Catálogo' && (
+          {/* VISTA: CREAR PRODUCTO (ANTES CATÁLOGO) */}
+          {menuActivo === 'Crear Producto' && (
              <div className="max-w-2xl mx-auto bg-white rounded shadow-sm border border-slate-200 h-fit">
                 <div className={`bg-white px-6 py-4 border-b border-slate-100 border-l-4 ${idEditando ? 'border-orange-500' : 'border-slate-700'}`}>
-                    <h3 className="font-bold text-slate-700 text-lg uppercase flex items-center gap-2"><IconoTag/> {idEditando ? 'Editar Producto' : 'Crear Ficha Técnica'}</h3>
+                    {/* AQUÍ CAMBIAMOS EL NOMBRE DE LA CABECERA DEL FORMULARIO */}
+                    <h3 className="font-bold text-slate-700 text-lg uppercase flex items-center gap-2"><IconoTag/> {idEditando ? 'Editar Producto' : 'Crear Producto'}</h3>
                     <p className="text-xs text-slate-400 mt-1">{idEditando ? 'Modificando información existente' : 'Registra nuevos productos. SKU automático.'}</p>
                 </div>
                 <form onSubmit={guardarMaterial} className="p-6 md:p-8 space-y-6">
@@ -442,7 +436,6 @@ const guardarMaterial = async (e) => {
                       </div>
                     </div>
                     
-                    {/* SCROLL HORIZONTAL PARA TABLA */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm text-left min-w-[600px]">
                         <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
@@ -457,9 +450,7 @@ const guardarMaterial = async (e) => {
                               <td className="px-4 py-3 text-center">{mat.stock_actual <= 5 ? (<span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded border border-red-200">CRÍTICO ({mat.stock_actual})</span>) : mat.stock_actual <= 20 ? (<span className="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-1 rounded border border-orange-200">BAJO ({mat.stock_actual})</span>) : (<span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded border border-green-200">NORMAL ({mat.stock_actual})</span>)}</td>
                               {rolUsuario === 'ADMIN' && <td className="px-4 py-3 text-right text-slate-500">${parseInt(mat.precio_costo).toLocaleString()}</td>}
                               {rolUsuario === 'ADMIN' && <td className="px-4 py-3 text-right font-bold text-slate-700">${(mat.stock_actual * mat.precio_costo).toLocaleString()}</td>}
-                              
                               <td className="px-4 py-3 text-center flex items-center justify-center gap-2">
-                                {/* BOTÓN EDITAR NUEVO */}
                                 <button onClick={() => cargarProductoParaEditar(mat)} className="text-slate-400 hover:text-blue-600 transition p-1 rounded hover:bg-blue-50" title="Editar"><IconoEdit /></button>
                                 <button onClick={() => eliminarProducto(mat.id, mat.nombre)} className="text-slate-400 hover:text-red-600 transition p-1 rounded hover:bg-red-50" title="Eliminar"><IconoTrash /></button>
                               </td>
@@ -511,7 +502,6 @@ const guardarMaterial = async (e) => {
                   </div>
                 </div>
                 
-                {/* SCROLL HORIZONTAL PARA TABLA */}
                 <div className="overflow-auto flex-1">
                   <table className="w-full text-sm text-left min-w-[600px]">
                     <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b sticky top-0"><tr><th className="px-4 py-3">Fecha/Hora</th><th className="px-4 py-3">Producto</th><th className="px-4 py-3 text-center">Tipo</th><th className="px-4 py-3 text-center">Cantidad</th><th className="px-4 py-3">Origen / Destino</th><th className="px-4 py-3 text-center">Acciones</th></tr></thead>
