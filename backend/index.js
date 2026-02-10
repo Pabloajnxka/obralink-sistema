@@ -339,7 +339,7 @@ app.put('/productos/:id', async (req, res) => {
   }
 });
 
-// 11. GENERAR PDF DE HISTORIAL (DISEÑO PREMIUM)
+// 11. GENERAR PDF DE HISTORIAL (CORREGIDO - 1 PÁGINA)
 app.get('/reporte-historial-pdf', async (req, res) => {
   const { busqueda, tipo } = req.query;
   
@@ -373,31 +373,29 @@ app.get('/reporte-historial-pdf', async (req, res) => {
 
     const { rows } = await pool.query(query, params);
 
-    // 2. Cálculos para el Resumen Ejecutivo
+    // 2. Cálculos Resumen
     const totalEntradas = rows.filter(r => r.tipo === 'ENTRADA').reduce((acc, r) => acc + r.cantidad, 0);
     const totalSalidas = rows.filter(r => r.tipo === 'SALIDA').reduce((acc, r) => acc + r.cantidad, 0);
 
-    // 3. Generación del PDF (Diseño Azul)
+    // 3. Generar PDF
     const PDFDocument = require('pdfkit');
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    // IMPORTANTE: Margen inferior más pequeño (30) para que quepan las firmas
+    const doc = new PDFDocument({ margin: 30, size: 'A4' }); 
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename=historial_premium.pdf');
     doc.pipe(res);
 
     // --- CABECERA AZUL ---
-    doc.rect(0, 0, doc.page.width, 100).fill('#2563eb'); // Fondo Azul
+    doc.rect(0, 0, doc.page.width, 100).fill('#2563eb'); 
     
     doc.fontSize(28).fillColor('white').text('ObraLink', 50, 30);
     doc.fontSize(10).text('HISTORIAL DE MOVIMIENTOS Y TRAZABILIDAD', 50, 65);
 
-    // Cuadro Blanco "Reporte"
     doc.roundedRect(doc.page.width - 200, 20, 150, 60, 5).fill('white');
     doc.fillColor('black').fontSize(10).font('Helvetica-Bold').text('REPORTE', doc.page.width - 185, 30);
     doc.font('Helvetica').fontSize(9).text(new Date().toLocaleDateString(), doc.page.width - 185, 45);
     doc.text(new Date().toLocaleTimeString(), doc.page.width - 185, 58);
-
-    doc.moveDown(4);
 
     // --- TABLA DE DATOS ---
     const tableTop = 130;
@@ -408,7 +406,6 @@ app.get('/reporte-historial-pdf', async (req, res) => {
     const colCant = 400;
     const colDest = 460;
 
-    // Encabezados de Tabla (Azul)
     doc.font('Helvetica-Bold').fontSize(9).fillColor('#2563eb');
     doc.text('FECHA', colFecha, tableTop);
     doc.text('HORA', colHora, tableTop);
@@ -417,72 +414,68 @@ app.get('/reporte-historial-pdf', async (req, res) => {
     doc.text('CANT.', colCant, tableTop);
     doc.text('ORIGEN / DESTINO', colDest, tableTop);
     
-    // Línea separadora
     doc.strokeColor('#2563eb').lineWidth(1).moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
 
     let position = tableTop + 25;
     doc.font('Helvetica').fontSize(9).fillColor('black');
 
     rows.forEach((row) => {
-      // Si se acaba la hoja, nueva página
-      if (position > 700) {
+      // Control de salto de página (Dejamos 150px libres abajo para firmas)
+      if (position > doc.page.height - 150) {
         doc.addPage();
-        position = 50;
+        position = 50; // Reiniciar posición arriba
       }
 
       const fecha = new Date(row.fecha).toLocaleDateString();
       const hora = new Date(row.fecha).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'});
       const esEntrada = row.tipo === 'ENTRADA';
-      const colorTipo = esEntrada ? '#16a34a' : '#dc2626'; // Verde o Rojo
+      const colorTipo = esEntrada ? '#16a34a' : '#dc2626';
 
       doc.text(fecha, colFecha, position);
       doc.text(hora, colHora, position);
       
-      // Tipo con color
       doc.fillColor(colorTipo).font('Helvetica-Bold').text(row.tipo, colTipo, position);
       doc.fillColor('black').font('Helvetica');
 
-      // Producto y SKU
       doc.text(row.producto, colProd, position, { width: 130, lineBreak: false, ellipsis: true });
       doc.fontSize(7).fillColor('gray').text(row.sku, colProd, position + 10);
       doc.fontSize(9).fillColor('black');
 
       doc.text(row.cantidad, colCant, position);
       
-      // Destino
       const destinoTexto = esEntrada ? 'Bodega Central' : row.obra;
       doc.text(destinoTexto, colDest, position, { width: 90, lineBreak: false, ellipsis: true });
 
-      position += 30; // Espacio entre filas
+      position += 30;
     });
 
-    // --- RESUMEN EJECUTIVO (CAJA LATERAL) ---
-    // Dibujamos la caja de resumen si hay espacio, si no, nueva pagina
-    if (position > 600) { doc.addPage(); position = 50; }
+    // --- RESUMEN EJECUTIVO ---
+    // Si no cabe el resumen, nueva página
+    if (position > doc.page.height - 200) { doc.addPage(); position = 50; }
     
     const boxTop = position + 20;
-    doc.fillColor('#eff6ff').roundedRect(350, boxTop, 200, 80, 5).fill(); // Fondo Azul muy claro
+    doc.fillColor('#eff6ff').roundedRect(350, boxTop, 200, 80, 5).fill();
     
     doc.fillColor('#2563eb').font('Helvetica-Bold').fontSize(10).text('RESUMEN DEL PERIODO', 365, boxTop + 10);
-    
     doc.fillColor('black').fontSize(9).font('Helvetica');
     doc.text('Total Entradas (Unid):', 365, boxTop + 30);
     doc.font('Helvetica-Bold').fillColor('#16a34a').text(totalEntradas, 500, boxTop + 30, { align: 'right', width: 40 });
-
     doc.fillColor('black').font('Helvetica').text('Total Salidas (Unid):', 365, boxTop + 50);
     doc.font('Helvetica-Bold').fillColor('#dc2626').text(totalSalidas, 500, boxTop + 50, { align: 'right', width: 40 });
 
-    // --- FIRMAS (PIE DE PÁGINA) ---
-    const pageBottom = doc.page.height - 50;
+    // --- FIRMAS (FIX: Subidas para no crear pagina nueva) ---
+    // Posición fija segura desde abajo (100px desde el final)
+    const firmaY = doc.page.height - 100;
+
     doc.strokeColor('black').lineWidth(1);
     
     // Firma 1
-    doc.moveTo(50, pageBottom).lineTo(200, pageBottom).stroke();
-    doc.fontSize(8).fillColor('gray').text('Firma Jefe de Bodega', 50, pageBottom + 5, { width: 150, align: 'center' });
+    doc.moveTo(50, firmaY).lineTo(200, firmaY).stroke();
+    doc.fontSize(8).fillColor('gray').text('Firma Jefe de Bodega', 50, firmaY + 5, { width: 150, align: 'center' });
 
     // Firma 2
-    doc.moveTo(350, pageBottom).lineTo(500, pageBottom).stroke();
-    doc.text('Firma Administrador', 350, pageBottom + 5, { width: 150, align: 'center' });
+    doc.moveTo(350, firmaY).lineTo(500, firmaY).stroke();
+    doc.text('Firma Administrador', 350, firmaY + 5, { width: 150, align: 'center' });
 
     doc.end();
 
