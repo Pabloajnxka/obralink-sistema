@@ -366,9 +366,10 @@ function App() {
                         <div className="bg-orange-100 text-orange-600 p-3 rounded-full group-hover:bg-orange-600 group-hover:text-white transition"><IconoBuilding /></div>
                         <span className="text-xs font-bold text-slate-600">Obras</span>
                     </button>
+                    {/* AQUÍ CORREGIMOS BITÁCORA -> HISTORIAL */}
                     <button onClick={()=>cambiarMenu('Historial')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-purple-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
                         <div className="bg-purple-100 text-purple-600 p-3 rounded-full group-hover:bg-purple-600 group-hover:text-white transition"><IconoHistory /></div>
-                        <span className="text-xs font-bold text-slate-600">Bitácora</span>
+                        <span className="text-xs font-bold text-slate-600">Historial</span>
                     </button>
                 </div>
               </div>
