@@ -406,6 +406,19 @@ function App() {
                              <span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1"><IconoBox/> Materiales Recibidos</span>
                              <span className="text-lg font-bold text-slate-800">{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span>
                         </div>
+                        {/* LÓGICA INTELIGENTE: STOCK vs RECIBIDOS */}
+                          <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2">
+                            <span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
+                              <IconoBox/> {o.nombre === 'Bodega Central' ? 'Stock Disponible' : 'Materiales Recibidos'}
+                            </span>
+                            <span className="text-lg font-bold text-slate-800">
+                              {o.nombre === 'Bodega Central' 
+                                ? materiales.reduce((acc, m) => acc + m.stock_actual, 0) // Si es Bodega, suma todo el stock
+                                : calcularMaterialesEnObra(o.id) // Si es Obra, cuenta lo enviado
+                              } 
+                            <span className="text-xs text-slate-400 font-normal"> unid.</span>
+                            </span>
+                        </div>
                       </div>
                    </div>
                  ))}
