@@ -175,7 +175,7 @@ function App() {
         categoria: prod.categoria
      });
      setIdEditando(prod.id);
-     cambiarMenu('Crear Producto'); // <--- CAMBIO AQUÍ: Ahora redirige a 'Crear Producto'
+     cambiarMenu('Crear Producto'); 
   }
   
   const guardarObra = async (e) => { 
@@ -300,7 +300,6 @@ function App() {
           <button onClick={()=>cambiarMenu('Salidas')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Salidas' ? 'bg-red-600 text-white' : ''}`}><IconoOut/><span className="ml-3">Salidas</span></button>
 
           <p className="px-6 text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider mt-4">Gestión</p>
-          {/* AQUÍ CAMBIAMOS EL NOMBRE DEL MENÚ */}
           <button onClick={()=>cambiarMenu('Crear Producto')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Crear Producto' ? 'bg-slate-700 text-white' : ''}`}><IconoTag/><span className="ml-3">Crear Producto</span></button>
           <button onClick={()=>cambiarMenu('Almacén')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Almacén' ? 'bg-slate-700 text-white' : ''}`}><IconoBox/><span className="ml-3">Almacén</span></button>
           <button onClick={()=>cambiarMenu('Obras')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Obras' ? 'bg-slate-700 text-white' : ''}`}><IconoBuilding/><span className="ml-3">Obras</span></button>
@@ -324,8 +323,9 @@ function App() {
           {/* VISTA: INICIO (DASHBOARD) */}
           {menuActivo === 'Inicio' && (
             <div className="space-y-6">
+              
+              {/* KPIs SUPERIORES */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                
                 {rolUsuario === 'ADMIN' && (
                   <div className="bg-blue-600 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Almacén')}>
                     <div><h3 className="text-3xl font-bold">${kpiTotalValor.toLocaleString('es-CL')}</h3><p className="text-blue-100 text-xs font-bold uppercase mt-1">Inversión Stock</p></div>
@@ -339,6 +339,37 @@ function App() {
                 </div>
                 <div className="bg-green-600 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Ingresos')}>
                   <div><h3 className="text-3xl font-bold">{kpiTotalItems}</h3><p className="text-green-100 text-xs font-bold uppercase mt-1">Total Ítems</p></div>
+                </div>
+              </div>
+
+              {/* SECCIÓN NUEVA: ACCESOS RÁPIDOS */}
+              <div>
+                <h3 className="font-bold text-slate-700 text-sm uppercase mb-3 flex items-center gap-2">Accesos Rápidos</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <button onClick={()=>cambiarMenu('Ingresos')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-green-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
+                        <div className="bg-green-100 text-green-600 p-3 rounded-full group-hover:bg-green-600 group-hover:text-white transition"><IconoIn /></div>
+                        <span className="text-xs font-bold text-slate-600">Ingresos</span>
+                    </button>
+                    <button onClick={()=>cambiarMenu('Salidas')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-red-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
+                        <div className="bg-red-100 text-red-600 p-3 rounded-full group-hover:bg-red-600 group-hover:text-white transition"><IconoOut /></div>
+                        <span className="text-xs font-bold text-slate-600">Salidas</span>
+                    </button>
+                    <button onClick={()=>cambiarMenu('Crear Producto')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-slate-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
+                        <div className="bg-slate-100 text-slate-600 p-3 rounded-full group-hover:bg-slate-600 group-hover:text-white transition"><IconoTag /></div>
+                        <span className="text-xs font-bold text-slate-600">Crear</span>
+                    </button>
+                    <button onClick={()=>cambiarMenu('Almacén')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
+                        <div className="bg-blue-100 text-blue-600 p-3 rounded-full group-hover:bg-blue-600 group-hover:text-white transition"><IconoBox /></div>
+                        <span className="text-xs font-bold text-slate-600">Inventario</span>
+                    </button>
+                    <button onClick={()=>cambiarMenu('Obras')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-orange-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
+                        <div className="bg-orange-100 text-orange-600 p-3 rounded-full group-hover:bg-orange-600 group-hover:text-white transition"><IconoBuilding /></div>
+                        <span className="text-xs font-bold text-slate-600">Obras</span>
+                    </button>
+                    <button onClick={()=>cambiarMenu('Historial')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-purple-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
+                        <div className="bg-purple-100 text-purple-600 p-3 rounded-full group-hover:bg-purple-600 group-hover:text-white transition"><IconoHistory /></div>
+                        <span className="text-xs font-bold text-slate-600">Bitácora</span>
+                    </button>
                 </div>
               </div>
 
@@ -390,7 +421,6 @@ function App() {
           {menuActivo === 'Crear Producto' && (
              <div className="max-w-2xl mx-auto bg-white rounded shadow-sm border border-slate-200 h-fit">
                 <div className={`bg-white px-6 py-4 border-b border-slate-100 border-l-4 ${idEditando ? 'border-orange-500' : 'border-slate-700'}`}>
-                    {/* AQUÍ CAMBIAMOS EL NOMBRE DE LA CABECERA DEL FORMULARIO */}
                     <h3 className="font-bold text-slate-700 text-lg uppercase flex items-center gap-2"><IconoTag/> {idEditando ? 'Editar Producto' : 'Crear Producto'}</h3>
                     <p className="text-xs text-slate-400 mt-1">{idEditando ? 'Modificando información existente' : 'Registra nuevos productos. SKU automático.'}</p>
                 </div>
