@@ -339,6 +339,84 @@ app.put('/productos/:id', async (req, res) => {
   }
 });
 
+// 11. GENERAR PDF DE HISTORIAL (NUEVO)
+app.get('/reporte-historial-pdf', async (req, res) => {
+  const { busqueda, tipo } = req.query;
+  
+  try {
+    // Construimos la consulta dinámica
+    let query = `
+      SELECT m.fecha, m.tipo, m.cantidad, p.nombre as producto, p.sku, o.nombre as obra 
+      FROM movimientos m
+      JOIN productos p ON m.id_producto = p.id
+      LEFT JOIN obras o ON m.id_obra = o.id
+    `;
+    
+    const params = [];
+    const conditions = [];
+
+    // Filtro de búsqueda (texto)
+    if (busqueda) {
+      conditions.push(`(p.nombre ILIKE $${params.length + 1} OR p.sku ILIKE $${params.length + 1} OR o.nombre ILIKE $${params.length + 1})`);
+      params.push(`%${busqueda}%`);
+    }
+
+    // Filtro de tipo (Entrada/Salida)
+    if (tipo && tipo !== 'TODOS') {
+      conditions.push(`m.tipo = $${params.length + 1}`);
+      params.push(tipo);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    query += ' ORDER BY m.fecha DESC';
+
+    const { rows } = await pool.query(query, params);
+
+    // Generar PDF
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 30 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename=historial.pdf');
+    doc.pipe(res);
+
+    // Encabezado
+    doc.fontSize(18).text('Bitácora de Movimientos - ObraLink', { align: 'center' });
+    doc.fontSize(10).text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, { align: 'center' });
+    doc.moveDown();
+
+    // Tabla simple
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('Fecha       | Hora   | Tipo      | Cant. | Producto', { underline: true });
+    doc.font('Helvetica');
+    
+    rows.forEach(row => {
+      const fecha = new Date(row.fecha).toLocaleDateString();
+      const hora = new Date(row.fecha).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'});
+      const destino = row.tipo === 'SALIDA' ? `-> ${row.obra}` : 'Bodega';
+      
+      doc.text(`${fecha} | ${hora} | ${row.tipo.padEnd(9)} | ${row.cantidad.toString().padEnd(5)} | ${row.producto}`);
+      doc.fontSize(8).fillColor('gray').text(`   Detalle: ${row.sku} (${destino})`);
+      doc.fontSize(10).fillColor('black');
+      doc.moveDown(0.5);
+    });
+
+    if(rows.length === 0) {
+        doc.moveDown();
+        doc.text("No se encontraron movimientos con los filtros aplicados.");
+    }
+
+    doc.end();
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error generando PDF');
+  }
+});
+
 // ==========================================
 // 4. INICIO DEL SERVIDOR
 // ==========================================

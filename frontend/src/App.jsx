@@ -366,7 +366,6 @@ function App() {
                         <div className="bg-orange-100 text-orange-600 p-3 rounded-full group-hover:bg-orange-600 group-hover:text-white transition"><IconoBuilding /></div>
                         <span className="text-xs font-bold text-slate-600">Obras</span>
                     </button>
-                    {/* AQUÍ CORREGIMOS BITÁCORA -> HISTORIAL */}
                     <button onClick={()=>cambiarMenu('Historial')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-purple-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
                         <div className="bg-purple-100 text-purple-600 p-3 rounded-full group-hover:bg-purple-600 group-hover:text-white transition"><IconoHistory /></div>
                         <span className="text-xs font-bold text-slate-600">Historial</span>
@@ -528,6 +527,9 @@ function App() {
                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex flex-col md:flex-row flex-wrap justify-between items-start md:items-center border-l-4 border-purple-500 gap-2">
                   <h3 className="font-bold text-slate-700 text-sm uppercase">Bitácora de Movimientos</h3>
                   <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
+                    {/* AQUÍ ESTÁ EL NUEVO BOTÓN PDF */}
+                    <button onClick={() => window.open(`${API_URL}/reporte-historial-pdf?busqueda=${busquedaHistorial}&tipo=${filtroTipoHistorial}`, '_blank')} className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-xs font-bold flex justify-center items-center gap-1 shadow-sm transition">📄 PDF</button>
+                    
                     <div className="flex bg-white rounded border overflow-hidden"><button onClick={()=>setFiltroTipoHistorial('TODOS')} className={`px-3 py-2 text-xs font-bold ${filtroTipoHistorial==='TODOS' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Todos</button><button onClick={()=>setFiltroTipoHistorial('ENTRADA')} className={`px-3 py-2 text-xs font-bold ${filtroTipoHistorial==='ENTRADA' ? 'bg-green-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Entradas</button><button onClick={()=>setFiltroTipoHistorial('SALIDA')} className={`px-3 py-2 text-xs font-bold ${filtroTipoHistorial==='SALIDA' ? 'bg-red-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Salidas</button></div>
                     <div className="flex items-center bg-white border rounded px-2"><IconoFilter className="text-slate-400 w-3 h-3"/><input type="text" placeholder="Buscar..." value={busquedaHistorial} onChange={e=>setBusquedaHistorial(e.target.value)} className="text-xs px-2 py-2 outline-none w-full md:w-48" /></div>
                   </div>
