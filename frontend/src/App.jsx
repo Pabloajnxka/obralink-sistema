@@ -142,33 +142,36 @@ function App() {
   }
 
   // --- LOGICA MODIFICADA PARA GUARDAR O EDITAR ---
-  const guardarMaterial = async (e) => { 
-    e.preventDefault(); 
-
-    if (idEditando) {
-       // MODO EDICIÓN
-       await fetch(`${API_URL}/productos/${idEditando}`, { 
-          method: 'PUT', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify(formulario) 
-       });
-       alert("✅ Producto actualizado correctamente");
-       setIdEditando(null); // Salir del modo edición
-    } else {
-       // MODO CREACIÓN (El que ya tenías)
-       const prefix = formulario.nombre ? formulario.nombre.substring(0, 3).toUpperCase() : 'GEN';
-       const randomNum = Math.floor(1000 + Math.random() * 9000);
-       const skuAutomatico = `${prefix}-${randomNum}`;
-       await fetch(`${API_URL}/productos`, { 
-         method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-         body: JSON.stringify({ ...formulario, sku: skuAutomatico, precio_venta: 0, stock_actual: 0 }) 
-       }); 
-       alert(`✅ Producto creado exitosamente.\nSKU Asignado: ${skuAutomatico}`);
-    }
-
-    setFormulario({ nombre: '', sku: '', precio_costo: '', categoria: '' }); 
-    obtenerDatos(); 
+// Busca esta función y REEMPLÁZALA completa:
+const guardarMaterial = async (e) => { 
+  e.preventDefault(); 
+  
+  if (idEditando) {
+     // MODO EDICIÓN
+     await fetch(`${API_URL}/productos/${idEditando}`, { 
+        method: 'PUT', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(formulario) 
+     });
+     alert("✅ Producto actualizado correctamente");
+     setIdEditando(null);
+     cambiarMenu('Almacén'); // <--- ¡ESTA LÍNEA ES LA MAGIA! (Te devuelve a la lista)
+  } else {
+     // MODO CREACIÓN
+     const prefix = formulario.nombre ? formulario.nombre.substring(0, 3).toUpperCase() : 'GEN';
+     const randomNum = Math.floor(1000 + Math.random() * 9000);
+     const skuAutomatico = `${prefix}-${randomNum}`;
+     await fetch(`${API_URL}/productos`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ ...formulario, sku: skuAutomatico, precio_venta: 0, stock_actual: 0 }) 
+     }); 
+     alert(`✅ Producto creado exitosamente.\nSKU Asignado: ${skuAutomatico}`);
   }
+
+  setFormulario({ nombre: '', sku: '', precio_costo: '', categoria: '' }); 
+  obtenerDatos(); 
+}
 
   // NUEVA FUNCION: PREPARAR EDICION
   const cargarProductoParaEditar = (prod) => {
@@ -283,7 +286,7 @@ function App() {
       md:relative md:translate-x-0 transition duration-300 ease-in-out
       w-64 bg-slate-800 text-slate-300 flex-shrink-0 z-40 min-h-screen flex flex-col shadow-2xl md:shadow-none
       `}>
-        
+
         <div className="h-14 hidden md:flex items-center px-6 bg-slate-900 font-bold text-white text-lg tracking-wider border-b border-slate-700">
           <span className="text-blue-500 mr-2">●</span> ObraLink
         </div>
