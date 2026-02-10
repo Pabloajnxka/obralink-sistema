@@ -1,59 +1,31 @@
 import { useEffect, useState } from 'react'
 
 // ==========================================
-// 1. ÍCONOS SVG
+// 1. ÍCONOS SVG (Todos los íconos necesarios)
 // ==========================================
-const IconoHome = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-)
-const IconoBox = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/></svg>
-)
-const IconoHistory = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-)
-const IconoBuilding = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="22"/><line x1="15" y1="22" x2="15" y2="22"/><line x1="12" y1="22" x2="12" y2="22"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
-)
-const IconoIn = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
-)
-const IconoOut = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
-)
-const IconoTag = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
-)
-const IconoChart = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-)
-const IconoMail = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-)
-const IconoLock = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-)
-const IconoFilter = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-)
-const IconoTrash = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-)
-const IconoMenu = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-)
-const IconoClose = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-)
-const IconoEdit = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-)
+const IconoHome = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+const IconoBox = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/></svg>
+const IconoHistory = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+const IconoBuilding = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="22"/><line x1="15" y1="22" x2="15" y2="22"/><line x1="12" y1="22" x2="12" y2="22"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+const IconoIn = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+const IconoOut = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+const IconoTag = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
+const IconoChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+const IconoMail = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+const IconoLock = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+const IconoFilter = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+const IconoTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+const IconoMenu = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+const IconoClose = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+const IconoEdit = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+const IconoBriefcase = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
 
 function App() {
   // ==========================================
   // 2. CONFIGURACIÓN Y ESTADOS
   // ==========================================
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  // 👇 CAMBIO PARA ASEGURAR CONEXIÓN EN MÓVIL (Tu URL fija)
+  const API_URL = 'https://obralink-sistema.onrender.com';
 
   const [usuarioLogueado, setUsuarioLogueado] = useState(null)
   const [rolUsuario, setRolUsuario] = useState('') 
@@ -116,66 +88,41 @@ function App() {
     try { 
       const r = await fetch(`${API_URL}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loginData) }); 
       const d = await r.json(); 
-      if (d.success) {
-        setUsuarioLogueado(d.nombre);
-        setRolUsuario(d.rol); 
-      } else {
-        setErrorLogin('Acceso denegado');
-      }
-    } catch { 
-      setErrorLogin('Sin conexión con el servidor'); 
-    } 
+      if (d.success) { setUsuarioLogueado(d.nombre); setRolUsuario(d.rol); } else { setErrorLogin('Acceso denegado'); }
+    } catch { setErrorLogin('Sin conexión con el servidor'); } 
   }
   
   const obtenerDatos = async () => { 
     try { 
       const rProd = await fetch(`${API_URL}/productos`); const dProd = await rProd.json(); setMateriales(dProd);
       const rObras = await fetch(`${API_URL}/obras`); const dObras = await rObras.json(); setObras(dObras);
-      if (dObras.length > 0 && !movimientoData.id_obra) {
-        setMovimientoData(prev => ({...prev, id_obra: dObras[0].id}))
-      }
-      if (menuActivo === 'Historial' || menuActivo === 'Inicio') {
-        const rHist = await fetch(`${API_URL}/movimientos`); const dHist = await rHist.json(); setHistorial(dHist);
+      if (dObras.length > 0 && !movimientoData.id_obra) { setMovimientoData(prev => ({...prev, id_obra: dObras[0].id})) }
+      
+      // CARGAR HISTORIAL TAMBIÉN EN OBRAS PARA PODER CONTAR MATERIALES
+      if (menuActivo === 'Historial' || menuActivo === 'Inicio' || menuActivo === 'Obras') { 
+        const rHist = await fetch(`${API_URL}/movimientos`); const dHist = await rHist.json(); setHistorial(dHist); 
       }
     } catch (e) { console.error("Error cargando datos:", e); } 
   }
 
   const guardarMaterial = async (e) => { 
     e.preventDefault(); 
-
     if (idEditando) {
-       await fetch(`${API_URL}/productos/${idEditando}`, { 
-          method: 'PUT', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify(formulario) 
-       });
-       alert("✅ Producto actualizado correctamente");
-       setIdEditando(null); 
-       cambiarMenu('Almacén'); 
+       await fetch(`${API_URL}/productos/${idEditando}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formulario) });
+       alert("✅ Producto actualizado correctamente"); setIdEditando(null); cambiarMenu('Almacén'); 
     } else {
        const prefix = formulario.nombre ? formulario.nombre.substring(0, 3).toUpperCase() : 'GEN';
        const randomNum = Math.floor(1000 + Math.random() * 9000);
        const skuAutomatico = `${prefix}-${randomNum}`;
-       await fetch(`${API_URL}/productos`, { 
-         method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-         body: JSON.stringify({ ...formulario, sku: skuAutomatico, precio_venta: 0, stock_actual: 0 }) 
-       }); 
+       await fetch(`${API_URL}/productos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formulario, sku: skuAutomatico, precio_venta: 0, stock_actual: 0 }) }); 
        alert(`✅ Producto creado exitosamente.\nSKU Asignado: ${skuAutomatico}`);
     }
-
-    setFormulario({ nombre: '', sku: '', precio_costo: '', categoria: '' }); 
-    obtenerDatos(); 
+    setFormulario({ nombre: '', sku: '', precio_costo: '', categoria: '' }); obtenerDatos(); 
   }
 
   const cargarProductoParaEditar = (prod) => {
-     setFormulario({
-        nombre: prod.nombre,
-        sku: prod.sku, 
-        precio_costo: prod.precio_costo,
-        categoria: prod.categoria
-     });
-     setIdEditando(prod.id);
-     cambiarMenu('Crear Producto'); 
+     setFormulario({ nombre: prod.nombre, sku: prod.sku, precio_costo: prod.precio_costo, categoria: prod.categoria });
+     setIdEditando(prod.id); cambiarMenu('Crear Producto'); 
   }
   
   const guardarObra = async (e) => { 
@@ -188,14 +135,8 @@ function App() {
     e.preventDefault();
     if (!movimientoData.id_producto || !movimientoData.cantidad) return alert("Por favor complete los datos");
     let obraFinal = null;
-    if (tipo === 'SALIDA') {
-        if(!movimientoData.id_obra) return alert("Debe seleccionar una obra de destino");
-        obraFinal = movimientoData.id_obra;
-    }
-    await fetch(`${API_URL}/movimientos`, { 
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ id_producto: movimientoData.id_producto, tipo: tipo, cantidad: movimientoData.cantidad, id_obra: obraFinal }) 
-    }); 
+    if (tipo === 'SALIDA') { if(!movimientoData.id_obra) return alert("Debe seleccionar una obra de destino"); obraFinal = movimientoData.id_obra; }
+    await fetch(`${API_URL}/movimientos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_producto: movimientoData.id_producto, tipo: tipo, cantidad: movimientoData.cantidad, id_obra: obraFinal }) }); 
     setMovimientoData({ ...movimientoData, cantidad: '' }); obtenerDatos();
     alert(tipo === 'ENTRADA' ? "✅ Ingreso a bodega registrado" : "🚀 Despacho a obra registrado");
   }
@@ -205,28 +146,22 @@ function App() {
       try { await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' }); obtenerDatos(); } catch (e) { alert("Error al eliminar"); }
     }
   }
-
   const eliminarMovimiento = async (id) => {
     if (window.confirm(`¿Seguro deseas eliminar este registro del historial?`)) {
       try { await fetch(`${API_URL}/movimientos/${id}`, { method: 'DELETE' }); obtenerDatos(); } catch (e) { alert("Error al eliminar"); }
     }
   }
-
   const eliminarObra = async (id, nombre) => {
     if (window.confirm(`⚠️ PELIGRO ⚠️\n\n¿Estás seguro de eliminar la obra "${nombre}"?`)) {
-      try {
-        const response = await fetch(`${API_URL}/obras/${id}`, { method: 'DELETE' });
-        if (!response.ok) { return alert("⛔ Error: No puedes eliminar la Bodega Central."); }
-        obtenerDatos();
-      } catch (e) { alert("Error de conexión al eliminar."); }
+      try { const response = await fetch(`${API_URL}/obras/${id}`, { method: 'DELETE' }); if (!response.ok) { return alert("⛔ Error: No puedes eliminar la Bodega Central."); } obtenerDatos(); } catch (e) { alert("Error de conexión al eliminar."); }
     }
   }
   
   const manejarInput = (e) => setFormulario({ ...formulario, [e.target.name]: e.target.value })
-  
-  const cambiarMenu = (nuevoMenu) => {
-    setMenuActivo(nuevoMenu);
-    setMenuMovilAbierto(false);
+  const cambiarMenu = (nuevoMenu) => { setMenuActivo(nuevoMenu); setMenuMovilAbierto(false); }
+
+  const calcularMaterialesEnObra = (obraId) => {
+    return historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, item) => acc + parseInt(item.cantidad), 0);
   }
 
   useEffect(() => { if(usuarioLogueado) obtenerDatos() }, [usuarioLogueado, menuActivo])
@@ -244,7 +179,6 @@ function App() {
           <div className="relative z-10"><h1 className="text-white text-4xl font-bold flex items-center gap-3"><span className="text-blue-500">●</span> ObraLink</h1></div>
           <div className="relative z-10"><blockquote className="text-2xl text-slate-300 font-medium leading-relaxed">"El éxito de una obra comienza con un inventario ordenado."</blockquote><p className="mt-6 text-slate-500 text-sm tracking-widest uppercase">Sistema de Gestión Integral v3.0</p></div>
         </div>
-
         <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
           <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-none lg:shadow-none sm:shadow-xl">
             <div className="text-center mb-10"><h2 className="text-3xl font-bold text-slate-800">Bienvenido</h2><p className="text-slate-500 mt-2">Ingresa tus credenciales para acceder</p></div>
@@ -261,35 +195,18 @@ function App() {
     )
   }
 
-  // --- VISTA DASHBOARD PRINCIPAL ---
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans text-slate-700 relative">
-      
-      {/* 1. HEADER MÓVIL */}
       <div className="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center z-50 shadow-md">
          <span className="font-bold text-lg flex items-center gap-2"><span className="text-blue-500">●</span> ObraLink</span>
-         <button onClick={() => setMenuMovilAbierto(!menuMovilAbierto)}>
-            {menuMovilAbierto ? <IconoClose /> : <IconoMenu />}
-         </button>
+         <button onClick={() => setMenuMovilAbierto(!menuMovilAbierto)}>{menuMovilAbierto ? <IconoClose /> : <IconoMenu />}</button>
       </div>
 
-      {/* 2. MENÚ LATERAL */}
-      <aside className={`
-        fixed inset-y-0 left-0 transform ${menuMovilAbierto ? 'translate-x-0' : '-translate-x-full'} 
-        md:relative md:translate-x-0 transition duration-300 ease-in-out
-        w-64 bg-slate-800 text-slate-300 flex-shrink-0 z-40 min-h-screen flex flex-col shadow-2xl md:shadow-none
-      `}>
-        <div className="h-14 hidden md:flex items-center px-6 bg-slate-900 font-bold text-white text-lg tracking-wider border-b border-slate-700">
-          <span className="text-blue-500 mr-2">●</span> ObraLink
-        </div>
+      <aside className={`fixed inset-y-0 left-0 transform ${menuMovilAbierto ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition duration-300 ease-in-out w-64 bg-slate-800 text-slate-300 flex-shrink-0 z-40 min-h-screen flex flex-col shadow-2xl md:shadow-none`}>
+        <div className="h-14 hidden md:flex items-center px-6 bg-slate-900 font-bold text-white text-lg tracking-wider border-b border-slate-700"><span className="text-blue-500 mr-2">●</span> ObraLink</div>
         <div className="p-6 border-b border-slate-700 flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg border-2 ${rolUsuario === 'ADMIN' ? 'bg-blue-600 border-blue-400' : 'bg-orange-600 border-orange-400'}`}>
-            {usuarioLogueado.charAt(0).toUpperCase()}
-          </div>
-          <div className="overflow-hidden">
-            <p className="text-white text-sm font-bold truncate">{usuarioLogueado}</p>
-            <p className="text-[10px] uppercase text-slate-400 tracking-wider font-bold">{rolUsuario}</p>
-          </div>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg border-2 ${rolUsuario === 'ADMIN' ? 'bg-blue-600 border-blue-400' : 'bg-orange-600 border-orange-400'}`}>{usuarioLogueado.charAt(0).toUpperCase()}</div>
+          <div className="overflow-hidden"><p className="text-white text-sm font-bold truncate">{usuarioLogueado}</p><p className="text-[10px] uppercase text-slate-400 tracking-wider font-bold">{rolUsuario}</p></div>
         </div>
         <nav className="mt-4 text-sm space-y-1 flex-1 overflow-y-auto">
           <p className="px-6 text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider mt-4">Principal</p>
@@ -307,24 +224,16 @@ function App() {
         </nav>
       </aside>
 
-      {/* ÁREA DE CONTENIDO */}
       <div className="flex-1 flex flex-col h-[calc(100vh-60px)] md:h-screen overflow-hidden">
         <header className="hidden md:flex h-14 bg-white shadow-sm border-b items-center justify-between px-6 z-10">
-          <div className="text-lg font-bold text-slate-700 uppercase flex items-center gap-2">
-            <span className="text-blue-500">/</span> {menuActivo}
-          </div>
-          <button onClick={()=>setUsuarioLogueado(null)} className="text-xs font-bold text-red-500 hover:text-red-700 uppercase border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition">
-            Cerrar Sesión
-          </button>
+          <div className="text-lg font-bold text-slate-700 uppercase flex items-center gap-2"><span className="text-blue-500">/</span> {menuActivo}</div>
+          <button onClick={()=>setUsuarioLogueado(null)} className="text-xs font-bold text-red-500 hover:text-red-700 uppercase border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition">Cerrar Sesión</button>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-100 pb-20 md:pb-6">
           
-          {/* VISTA: INICIO (DASHBOARD) */}
           {menuActivo === 'Inicio' && (
             <div className="space-y-6">
-              
-              {/* KPIs SUPERIORES */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 {rolUsuario === 'ADMIN' && (
                   <div className="bg-blue-600 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Almacén')}>
@@ -342,34 +251,15 @@ function App() {
                 </div>
               </div>
 
-              {/* SECCIÓN NUEVA: ACCESOS RÁPIDOS */}
               <div>
                 <h3 className="font-bold text-slate-700 text-sm uppercase mb-3 flex items-center gap-2">Accesos Rápidos</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <button onClick={()=>cambiarMenu('Ingresos')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-green-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
-                        <div className="bg-green-100 text-green-600 p-3 rounded-full group-hover:bg-green-600 group-hover:text-white transition"><IconoIn /></div>
-                        <span className="text-xs font-bold text-slate-600">Ingresos</span>
-                    </button>
-                    <button onClick={()=>cambiarMenu('Salidas')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-red-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
-                        <div className="bg-red-100 text-red-600 p-3 rounded-full group-hover:bg-red-600 group-hover:text-white transition"><IconoOut /></div>
-                        <span className="text-xs font-bold text-slate-600">Salidas</span>
-                    </button>
-                    <button onClick={()=>cambiarMenu('Crear Producto')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-slate-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
-                        <div className="bg-slate-100 text-slate-600 p-3 rounded-full group-hover:bg-slate-600 group-hover:text-white transition"><IconoTag /></div>
-                        <span className="text-xs font-bold text-slate-600">Crear</span>
-                    </button>
-                    <button onClick={()=>cambiarMenu('Almacén')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
-                        <div className="bg-blue-100 text-blue-600 p-3 rounded-full group-hover:bg-blue-600 group-hover:text-white transition"><IconoBox /></div>
-                        <span className="text-xs font-bold text-slate-600">Inventario</span>
-                    </button>
-                    <button onClick={()=>cambiarMenu('Obras')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-orange-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
-                        <div className="bg-orange-100 text-orange-600 p-3 rounded-full group-hover:bg-orange-600 group-hover:text-white transition"><IconoBuilding /></div>
-                        <span className="text-xs font-bold text-slate-600">Obras</span>
-                    </button>
-                    <button onClick={()=>cambiarMenu('Historial')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-purple-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group">
-                        <div className="bg-purple-100 text-purple-600 p-3 rounded-full group-hover:bg-purple-600 group-hover:text-white transition"><IconoHistory /></div>
-                        <span className="text-xs font-bold text-slate-600">Historial</span>
-                    </button>
+                    <button onClick={()=>cambiarMenu('Ingresos')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-green-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-green-100 text-green-600 p-3 rounded-full group-hover:bg-green-600 group-hover:text-white transition"><IconoIn /></div><span className="text-xs font-bold text-slate-600">Ingresos</span></button>
+                    <button onClick={()=>cambiarMenu('Salidas')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-red-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-red-100 text-red-600 p-3 rounded-full group-hover:bg-red-600 group-hover:text-white transition"><IconoOut /></div><span className="text-xs font-bold text-slate-600">Salidas</span></button>
+                    <button onClick={()=>cambiarMenu('Crear Producto')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-slate-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-slate-100 text-slate-600 p-3 rounded-full group-hover:bg-slate-600 group-hover:text-white transition"><IconoTag /></div><span className="text-xs font-bold text-slate-600">Crear</span></button>
+                    <button onClick={()=>cambiarMenu('Almacén')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-blue-100 text-blue-600 p-3 rounded-full group-hover:bg-blue-600 group-hover:text-white transition"><IconoBox /></div><span className="text-xs font-bold text-slate-600">Inventario</span></button>
+                    <button onClick={()=>cambiarMenu('Obras')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-orange-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-orange-100 text-orange-600 p-3 rounded-full group-hover:bg-orange-600 group-hover:text-white transition"><IconoBuilding /></div><span className="text-xs font-bold text-slate-600">Obras</span></button>
+                    <button onClick={()=>cambiarMenu('Historial')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-purple-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-purple-100 text-purple-600 p-3 rounded-full group-hover:bg-purple-600 group-hover:text-white transition"><IconoHistory /></div><span className="text-xs font-bold text-slate-600">Historial</span></button>
                 </div>
               </div>
 
@@ -378,7 +268,6 @@ function App() {
                   <h3 className="font-bold text-slate-700 text-sm uppercase mb-4 flex items-center gap-2"><IconoChart/> Composición de Bodega</h3>
                   <div className="space-y-4">{Object.keys(statsPorCategoria).slice(0, 5).map((cat) => { const count = statsPorCategoria[cat]; const porcentaje = Math.round((count / kpiTotalItems) * 100) || 0; return (<div key={cat}><div className="flex justify-between text-xs mb-1"><span className="font-bold text-slate-600">{cat}</span><span className="text-slate-400">{count} ítem(s) ({porcentaje}%)</span></div><div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-blue-500 h-2 rounded-full" style={{ width: `${porcentaje}%` }}></div></div></div>)})}</div>
                 </div>
-
                 <div className="lg:col-span-2 bg-white rounded shadow-sm border border-slate-200 p-6">
                   <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-slate-700 text-sm uppercase flex items-center gap-2"><IconoHistory/> Actividad Reciente</h3><button onClick={()=>cambiarMenu('Historial')} className="text-xs text-blue-600 hover:underline">Ver todo</button></div>
                   <div className="overflow-x-auto">
@@ -392,7 +281,6 @@ function App() {
             </div>
           )}
 
-          {/* VISTA: INGRESOS */}
           {menuActivo === 'Ingresos' && (
              <div className="max-w-2xl mx-auto bg-white rounded shadow-lg border border-slate-200 overflow-hidden">
                 <div className="bg-green-600 p-6 text-white"><h2 className="text-xl md:text-2xl font-bold flex items-center gap-2"><IconoIn/> Registrar Ingreso</h2><p className="text-green-100 text-sm">Entrada de mercadería a Bodega Central</p></div>
@@ -404,7 +292,6 @@ function App() {
              </div>
           )}
 
-          {/* VISTA: SALIDAS */}
           {menuActivo === 'Salidas' && (
              <div className="max-w-2xl mx-auto bg-white rounded shadow-lg border border-slate-200 overflow-hidden">
                 <div className="bg-red-600 p-6 text-white"><h2 className="text-xl md:text-2xl font-bold flex items-center gap-2"><IconoOut/> Registrar Salida</h2><p className="text-red-100 text-sm">Despacho de materiales hacia Obra</p></div>
@@ -417,7 +304,6 @@ function App() {
              </div>
           )}
 
-          {/* VISTA: CREAR PRODUCTO (ANTES CATÁLOGO) */}
           {menuActivo === 'Crear Producto' && (
              <div className="max-w-2xl mx-auto bg-white rounded shadow-sm border border-slate-200 h-fit">
                 <div className={`bg-white px-6 py-4 border-b border-slate-100 border-l-4 ${idEditando ? 'border-orange-500' : 'border-slate-700'}`}>
@@ -432,30 +318,21 @@ function App() {
                   {rolUsuario === 'ADMIN' && (
                     <div><label className="text-sm font-bold text-slate-600 block mb-2">Costo Neto Unitario ($)</label><input required name="precio_costo" value={formulario.precio_costo} onChange={manejarInput} type="number" className="w-full border border-slate-300 p-3 rounded bg-slate-50 outline-none focus:border-slate-500" placeholder="0" /></div>
                   )}
-                  
                   <div className="flex gap-2">
-                     {idEditando && (
-                        <button type="button" onClick={() => { setIdEditando(null); setFormulario({ nombre: '', sku: '', precio_costo: '', categoria: '' }); }} className="w-1/3 bg-slate-300 text-slate-700 font-bold py-4 rounded hover:bg-slate-400 transition">CANCELAR</button>
-                     )}
-                     <button className={`flex-1 text-white font-bold py-4 rounded shadow-md flex justify-center items-center gap-2 transition ${idEditando ? 'bg-orange-600 hover:bg-orange-700' : 'bg-slate-700 hover:bg-slate-800'}`}>
-                        {idEditando ? '💾 GUARDAR CAMBIOS' : <span>+ CREAR PRODUCTO</span>}
-                     </button>
+                     {idEditando && (<button type="button" onClick={() => { setIdEditando(null); setFormulario({ nombre: '', sku: '', precio_costo: '', categoria: '' }); }} className="w-1/3 bg-slate-300 text-slate-700 font-bold py-4 rounded hover:bg-slate-400 transition">CANCELAR</button>)}
+                     <button className={`flex-1 text-white font-bold py-4 rounded shadow-md flex justify-center items-center gap-2 transition ${idEditando ? 'bg-orange-600 hover:bg-orange-700' : 'bg-slate-700 hover:bg-slate-800'}`}>{idEditando ? '💾 GUARDAR CAMBIOS' : <span>+ CREAR PRODUCTO</span>}</button>
                   </div>
                 </form>
              </div>
           )}
 
-          {/* VISTA: ALMACÉN (INVENTARIO) */}
           {menuActivo === 'Almacén' && (
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {rolUsuario === 'ADMIN' && (
-                    <div className="bg-white p-4 rounded shadow-sm border border-slate-200"><p className="text-xs font-bold text-slate-400 uppercase">Valor Visible</p><p className="text-xl font-bold text-blue-600">${kpiTotalValor.toLocaleString('es-CL')}</p></div>
-                  )}
+                  {rolUsuario === 'ADMIN' && (<div className="bg-white p-4 rounded shadow-sm border border-slate-200"><p className="text-xs font-bold text-slate-400 uppercase">Valor Visible</p><p className="text-xl font-bold text-blue-600">${kpiTotalValor.toLocaleString('es-CL')}</p></div>)}
                   <div className="bg-white p-4 rounded shadow-sm border border-slate-200"><p className="text-xs font-bold text-slate-400 uppercase">Items Listados</p><p className="text-xl font-bold text-slate-700">{kpiTotalItems}</p></div>
                   <div className="bg-white p-4 rounded shadow-sm border border-slate-200"><p className="text-xs font-bold text-slate-400 uppercase">Stock Crítico</p><p className={`text-xl font-bold ${kpiStockCritico > 0 ? 'text-red-500' : 'text-green-500'}`}>{kpiStockCritico}</p></div>
                 </div>
-
                 <div className="bg-white rounded shadow-sm border border-slate-200 h-fit">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex flex-col md:flex-row flex-wrap justify-between items-start md:items-center border-l-4 border-slate-500 gap-2">
                       <span className="font-bold text-slate-700 text-sm uppercase">Inventario General</span>
@@ -465,7 +342,6 @@ function App() {
                         <div className="flex items-center bg-white border rounded px-2"><span className="text-slate-400">🔍</span><input type="text" placeholder="Buscar..." value={busqueda} onChange={e=>setBusqueda(e.target.value)} className="text-xs px-2 py-2 outline-none w-full md:w-48" /></div>
                       </div>
                     </div>
-                    
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm text-left min-w-[600px]">
                         <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
@@ -493,27 +369,43 @@ function App() {
             </div>
           )}
 
-          {/* VISTA: OBRAS */}
           {menuActivo === 'Obras' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="bg-white rounded shadow-sm border border-slate-200 h-fit">
-                <div className="bg-white px-6 py-4 border-b border-slate-100"><h3 className="font-bold text-slate-700 text-sm uppercase">🏗️ Nueva Obra</h3></div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full content-start">
+              
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-fit overflow-hidden">
+                <div className="bg-slate-800 px-6 py-4 border-b border-slate-700">
+                  <h3 className="font-bold text-white text-lg uppercase flex items-center gap-2"><IconoBriefcase/> Gestión de Proyectos</h3>
+                  <p className="text-xs text-slate-400 mt-1">Crea centros de costos para asignar materiales.</p>
+                </div>
                 <form onSubmit={guardarObra} className="p-6 space-y-4">
-                  <div><label className="text-xs font-bold text-slate-500 block mb-1">Nombre del Proyecto</label><input required value={formObra.nombre} onChange={e=>setFormObra({...formObra, nombre: e.target.value})} type="text" className="w-full border border-slate-300 p-2 rounded text-sm bg-slate-50" /></div>
-                  <div><label className="text-xs font-bold text-slate-500 block mb-1">Cliente / Encargado</label><input required value={formObra.cliente} onChange={e=>setFormObra({...formObra, cliente: e.target.value})} type="text" className="w-full border border-slate-300 p-2 rounded text-sm bg-slate-50" /></div>
+                  <div><label className="text-xs font-bold text-slate-500 block mb-1">Nombre del Proyecto</label><input required value={formObra.nombre} onChange={e=>setFormObra({...formObra, nombre: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" placeholder="Ej: Edificio Centro" /></div>
+                  <div><label className="text-xs font-bold text-slate-500 block mb-1">Cliente / Encargado</label><input required value={formObra.cliente} onChange={e=>setFormObra({...formObra, cliente: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" placeholder="Ej: Constructora XYZ" /></div>
                   {rolUsuario === 'ADMIN' && (
-                    <div><label className="text-xs font-bold text-slate-500 block mb-1">Presupuesto ($)</label><input value={formObra.presupuesto} onChange={e=>setFormObra({...formObra, presupuesto: e.target.value})} type="number" className="w-full border border-slate-300 p-2 rounded text-sm bg-slate-50" /></div>
+                    <div><label className="text-xs font-bold text-slate-500 block mb-1">Presupuesto ($)</label><input value={formObra.presupuesto} onChange={e=>setFormObra({...formObra, presupuesto: e.target.value})} type="number" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" /></div>
                   )}
-                  <button className="w-full bg-slate-700 text-white font-bold py-3 rounded text-sm hover:bg-slate-800 shadow-md">CREAR OBRA</button>
+                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded shadow-md transition active:scale-95">CREAR NUEVO PROYECTO</button>
                 </form>
               </div>
-              <div className="lg:col-span-2 grid grid-cols-1 gap-4">
+
+              <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-min">
                  {obras.map(o => (
-                   <div key={o.id} className={`bg-white p-4 rounded shadow-sm border border-slate-200 border-l-4 flex justify-between items-center ${o.nombre === 'Bodega Central' ? 'border-l-blue-600' : 'border-l-slate-500'}`}>
-                      <div><h3 className="font-bold text-slate-800 flex items-center gap-2">{o.nombre} {o.nombre === 'Bodega Central' && <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full border border-blue-200">PRINCIPAL</span>}</h3><p className="text-xs text-slate-500">Cliente: {o.cliente}</p></div>
-                      <div className="flex gap-4 items-center">
-                        {rolUsuario === 'ADMIN' && (<div className="text-right"><span className="text-xs font-bold text-slate-400 block">PRESUPUESTO</span><span className="text-lg font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString()}</span></div>)}
-                        {o.nombre !== 'Bodega Central' && (<button onClick={() => eliminarObra(o.id, o.nombre)} className="text-slate-400 hover:text-red-600 transition p-2 rounded hover:bg-red-50" title="Eliminar Obra"><IconoTrash /></button>)}
+                   <div key={o.id} className={`bg-white p-5 rounded-xl shadow-sm border border-slate-200 relative group hover:shadow-md transition ${o.nombre === 'Bodega Central' ? 'border-l-4 border-l-blue-600' : 'border-l-4 border-l-orange-500'}`}>
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                           <div className={`p-3 rounded-lg ${o.nombre === 'Bodega Central' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}><IconoBuilding /></div>
+                           <div><h3 className="font-bold text-slate-800 text-lg leading-tight">{o.nombre}</h3><p className="text-xs text-slate-500 font-medium uppercase mt-1">{o.cliente}</p></div>
+                        </div>
+                        {o.nombre !== 'Bodega Central' && (<button onClick={() => eliminarObra(o.id, o.nombre)} className="text-slate-300 hover:text-red-500 transition"><IconoTrash /></button>)}
+                      </div>
+                      <div className="space-y-3">
+                        <div className="bg-slate-50 p-3 rounded border border-slate-100 flex justify-between items-center">
+                           <span className="text-xs font-bold text-slate-500 uppercase">Estado</span><span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-full">● En Ejecución</span>
+                        </div>
+                        {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString()}</span></div>)}
+                        <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2">
+                             <span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1"><IconoBox/> Materiales Recibidos</span>
+                             <span className="text-lg font-bold text-slate-800">{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span>
+                        </div>
                       </div>
                    </div>
                  ))}
@@ -521,20 +413,16 @@ function App() {
             </div>
           )}
 
-          {/* VISTA: HISTORIAL */}
           {menuActivo === 'Historial' && (
              <div className="bg-white rounded shadow-sm border border-slate-200 h-full flex flex-col">
                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex flex-col md:flex-row flex-wrap justify-between items-start md:items-center border-l-4 border-purple-500 gap-2">
                   <h3 className="font-bold text-slate-700 text-sm uppercase">Bitácora de Movimientos</h3>
                   <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
-                    {/* AQUÍ ESTÁ EL NUEVO BOTÓN PDF */}
                     <button onClick={() => window.open(`${API_URL}/reporte-historial-pdf?busqueda=${busquedaHistorial}&tipo=${filtroTipoHistorial}`, '_blank')} className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-xs font-bold flex justify-center items-center gap-1 shadow-sm transition">📄 PDF</button>
-                    
                     <div className="flex bg-white rounded border overflow-hidden"><button onClick={()=>setFiltroTipoHistorial('TODOS')} className={`px-3 py-2 text-xs font-bold ${filtroTipoHistorial==='TODOS' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Todos</button><button onClick={()=>setFiltroTipoHistorial('ENTRADA')} className={`px-3 py-2 text-xs font-bold ${filtroTipoHistorial==='ENTRADA' ? 'bg-green-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Entradas</button><button onClick={()=>setFiltroTipoHistorial('SALIDA')} className={`px-3 py-2 text-xs font-bold ${filtroTipoHistorial==='SALIDA' ? 'bg-red-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Salidas</button></div>
                     <div className="flex items-center bg-white border rounded px-2"><IconoFilter className="text-slate-400 w-3 h-3"/><input type="text" placeholder="Buscar..." value={busquedaHistorial} onChange={e=>setBusquedaHistorial(e.target.value)} className="text-xs px-2 py-2 outline-none w-full md:w-48" /></div>
                   </div>
                 </div>
-                
                 <div className="overflow-auto flex-1">
                   <table className="w-full text-sm text-left min-w-[600px]">
                     <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b sticky top-0"><tr><th className="px-4 py-3">Fecha/Hora</th><th className="px-4 py-3">Producto</th><th className="px-4 py-3 text-center">Tipo</th><th className="px-4 py-3 text-center">Cantidad</th><th className="px-4 py-3">Origen / Destino</th><th className="px-4 py-3 text-center">Acciones</th></tr></thead>
