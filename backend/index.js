@@ -339,12 +339,12 @@ app.put('/productos/:id', async (req, res) => {
   }
 });
 
-// 11. GENERAR PDF DE HISTORIAL (NUEVO)
+// 11. GENERAR PDF DE HISTORIAL (DISEÑO PREMIUM)
 app.get('/reporte-historial-pdf', async (req, res) => {
   const { busqueda, tipo } = req.query;
   
   try {
-    // Construimos la consulta dinámica
+    // 1. Consulta SQL
     let query = `
       SELECT m.fecha, m.tipo, m.cantidad, p.nombre as producto, p.sku, o.nombre as obra 
       FROM movimientos m
@@ -355,13 +355,11 @@ app.get('/reporte-historial-pdf', async (req, res) => {
     const params = [];
     const conditions = [];
 
-    // Filtro de búsqueda (texto)
     if (busqueda) {
       conditions.push(`(p.nombre ILIKE $${params.length + 1} OR p.sku ILIKE $${params.length + 1} OR o.nombre ILIKE $${params.length + 1})`);
       params.push(`%${busqueda}%`);
     }
 
-    // Filtro de tipo (Entrada/Salida)
     if (tipo && tipo !== 'TODOS') {
       conditions.push(`m.tipo = $${params.length + 1}`);
       params.push(tipo);
@@ -375,39 +373,116 @@ app.get('/reporte-historial-pdf', async (req, res) => {
 
     const { rows } = await pool.query(query, params);
 
-    // Generar PDF
+    // 2. Cálculos para el Resumen Ejecutivo
+    const totalEntradas = rows.filter(r => r.tipo === 'ENTRADA').reduce((acc, r) => acc + r.cantidad, 0);
+    const totalSalidas = rows.filter(r => r.tipo === 'SALIDA').reduce((acc, r) => acc + r.cantidad, 0);
+
+    // 3. Generación del PDF (Diseño Azul)
     const PDFDocument = require('pdfkit');
-    const doc = new PDFDocument({ margin: 30 });
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename=historial.pdf');
+    res.setHeader('Content-Disposition', 'inline; filename=historial_premium.pdf');
     doc.pipe(res);
 
-    // Encabezado
-    doc.fontSize(18).text('Bitácora de Movimientos - ObraLink', { align: 'center' });
-    doc.fontSize(10).text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, { align: 'center' });
-    doc.moveDown();
-
-    // Tabla simple
-    doc.fontSize(10).font('Helvetica-Bold');
-    doc.text('Fecha       | Hora   | Tipo      | Cant. | Producto', { underline: true });
-    doc.font('Helvetica');
+    // --- CABECERA AZUL ---
+    doc.rect(0, 0, doc.page.width, 100).fill('#2563eb'); // Fondo Azul
     
-    rows.forEach(row => {
+    doc.fontSize(28).fillColor('white').text('ObraLink', 50, 30);
+    doc.fontSize(10).text('HISTORIAL DE MOVIMIENTOS Y TRAZABILIDAD', 50, 65);
+
+    // Cuadro Blanco "Reporte"
+    doc.roundedRect(doc.page.width - 200, 20, 150, 60, 5).fill('white');
+    doc.fillColor('black').fontSize(10).font('Helvetica-Bold').text('REPORTE', doc.page.width - 185, 30);
+    doc.font('Helvetica').fontSize(9).text(new Date().toLocaleDateString(), doc.page.width - 185, 45);
+    doc.text(new Date().toLocaleTimeString(), doc.page.width - 185, 58);
+
+    doc.moveDown(4);
+
+    // --- TABLA DE DATOS ---
+    const tableTop = 130;
+    const colFecha = 50;
+    const colHora = 120;
+    const colTipo = 180;
+    const colProd = 260;
+    const colCant = 400;
+    const colDest = 460;
+
+    // Encabezados de Tabla (Azul)
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#2563eb');
+    doc.text('FECHA', colFecha, tableTop);
+    doc.text('HORA', colHora, tableTop);
+    doc.text('TIPO', colTipo, tableTop);
+    doc.text('PRODUCTO / SKU', colProd, tableTop);
+    doc.text('CANT.', colCant, tableTop);
+    doc.text('ORIGEN / DESTINO', colDest, tableTop);
+    
+    // Línea separadora
+    doc.strokeColor('#2563eb').lineWidth(1).moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+
+    let position = tableTop + 25;
+    doc.font('Helvetica').fontSize(9).fillColor('black');
+
+    rows.forEach((row) => {
+      // Si se acaba la hoja, nueva página
+      if (position > 700) {
+        doc.addPage();
+        position = 50;
+      }
+
       const fecha = new Date(row.fecha).toLocaleDateString();
       const hora = new Date(row.fecha).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'});
-      const destino = row.tipo === 'SALIDA' ? `-> ${row.obra}` : 'Bodega';
+      const esEntrada = row.tipo === 'ENTRADA';
+      const colorTipo = esEntrada ? '#16a34a' : '#dc2626'; // Verde o Rojo
+
+      doc.text(fecha, colFecha, position);
+      doc.text(hora, colHora, position);
       
-      doc.text(`${fecha} | ${hora} | ${row.tipo.padEnd(9)} | ${row.cantidad.toString().padEnd(5)} | ${row.producto}`);
-      doc.fontSize(8).fillColor('gray').text(`   Detalle: ${row.sku} (${destino})`);
-      doc.fontSize(10).fillColor('black');
-      doc.moveDown(0.5);
+      // Tipo con color
+      doc.fillColor(colorTipo).font('Helvetica-Bold').text(row.tipo, colTipo, position);
+      doc.fillColor('black').font('Helvetica');
+
+      // Producto y SKU
+      doc.text(row.producto, colProd, position, { width: 130, lineBreak: false, ellipsis: true });
+      doc.fontSize(7).fillColor('gray').text(row.sku, colProd, position + 10);
+      doc.fontSize(9).fillColor('black');
+
+      doc.text(row.cantidad, colCant, position);
+      
+      // Destino
+      const destinoTexto = esEntrada ? 'Bodega Central' : row.obra;
+      doc.text(destinoTexto, colDest, position, { width: 90, lineBreak: false, ellipsis: true });
+
+      position += 30; // Espacio entre filas
     });
 
-    if(rows.length === 0) {
-        doc.moveDown();
-        doc.text("No se encontraron movimientos con los filtros aplicados.");
-    }
+    // --- RESUMEN EJECUTIVO (CAJA LATERAL) ---
+    // Dibujamos la caja de resumen si hay espacio, si no, nueva pagina
+    if (position > 600) { doc.addPage(); position = 50; }
+    
+    const boxTop = position + 20;
+    doc.fillColor('#eff6ff').roundedRect(350, boxTop, 200, 80, 5).fill(); // Fondo Azul muy claro
+    
+    doc.fillColor('#2563eb').font('Helvetica-Bold').fontSize(10).text('RESUMEN DEL PERIODO', 365, boxTop + 10);
+    
+    doc.fillColor('black').fontSize(9).font('Helvetica');
+    doc.text('Total Entradas (Unid):', 365, boxTop + 30);
+    doc.font('Helvetica-Bold').fillColor('#16a34a').text(totalEntradas, 500, boxTop + 30, { align: 'right', width: 40 });
+
+    doc.fillColor('black').font('Helvetica').text('Total Salidas (Unid):', 365, boxTop + 50);
+    doc.font('Helvetica-Bold').fillColor('#dc2626').text(totalSalidas, 500, boxTop + 50, { align: 'right', width: 40 });
+
+    // --- FIRMAS (PIE DE PÁGINA) ---
+    const pageBottom = doc.page.height - 50;
+    doc.strokeColor('black').lineWidth(1);
+    
+    // Firma 1
+    doc.moveTo(50, pageBottom).lineTo(200, pageBottom).stroke();
+    doc.fontSize(8).fillColor('gray').text('Firma Jefe de Bodega', 50, pageBottom + 5, { width: 150, align: 'center' });
+
+    // Firma 2
+    doc.moveTo(350, pageBottom).lineTo(500, pageBottom).stroke();
+    doc.text('Firma Administrador', 350, pageBottom + 5, { width: 150, align: 'center' });
 
     doc.end();
 
