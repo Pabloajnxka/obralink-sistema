@@ -24,7 +24,7 @@ function App() {
   // ==========================================
   // 2. CONFIGURACIÓN Y ESTADOS
   // ==========================================
-  // 👇 CAMBIO PARA ASEGURAR CONEXIÓN EN MÓVIL (Tu URL fija)
+  // 👇 URL FIJA PARA RENDER
   const API_URL = 'https://obralink-sistema.onrender.com';
 
   const [usuarioLogueado, setUsuarioLogueado] = useState(null)
@@ -402,22 +402,18 @@ function App() {
                            <span className="text-xs font-bold text-slate-500 uppercase">Estado</span><span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-full">● En Ejecución</span>
                         </div>
                         {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString()}</span></div>)}
+                        
+                        {/* LÓGICA CORREGIDA: Bodega muestra DINERO ($), Obras muestran UNIDADES */}
                         <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2">
-                             <span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1"><IconoBox/> Materiales Recibidos</span>
-                             <span className="text-lg font-bold text-slate-800">{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span>
-                        </div>
-                        {/* LÓGICA INTELIGENTE: STOCK vs RECIBIDOS */}
-                          <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2">
-                            <span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
-                              <IconoBox/> {o.nombre === 'Bodega Central' ? 'Stock Disponible' : 'Materiales Recibidos'}
-                            </span>
-                            <span className="text-lg font-bold text-slate-800">
-                              {o.nombre === 'Bodega Central' 
-                                ? materiales.reduce((acc, m) => acc + m.stock_actual, 0) // Si es Bodega, suma todo el stock
-                                : calcularMaterialesEnObra(o.id) // Si es Obra, cuenta lo enviado
-                              } 
-                            <span className="text-xs text-slate-400 font-normal"> unid.</span>
-                            </span>
+                             <span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
+                                <IconoBox/> {o.nombre === 'Bodega Central' ? 'Valor Materiales' : 'Materiales Recibidos'}
+                             </span>
+                             <span className="text-lg font-bold text-slate-800">
+                                {o.nombre === 'Bodega Central' 
+                                   ? `$${materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0).toLocaleString('es-CL')}` // Bodega = Plata
+                                   : <span>{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span> // Obra = Unidades
+                                } 
+                             </span>
                         </div>
                       </div>
                    </div>
