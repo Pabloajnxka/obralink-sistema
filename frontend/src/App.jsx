@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 // ==========================================
-// 1. ÍCONOS SVG
+// 1. ÍCONOS SVG (Visuales)
 // ==========================================
 const IconoHome = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
 const IconoBox = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/></svg>
@@ -22,6 +22,9 @@ const IconoBriefcase = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" 
 const IconoUpload = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
 
 function App() {
+  // ==========================================
+  // 2. CONFIGURACIÓN Y ESTADOS
+  // ==========================================
   const API_URL = 'https://obralink-sistema.onrender.com';
 
   const [usuarioLogueado, setUsuarioLogueado] = useState(null)
@@ -71,7 +74,7 @@ function App() {
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false) 
 
   // --- CÁLCULO DE SUGERENCIAS ÚNICAS ---
-  const categoriasUnicas = [...new Set(materiales.map(m => m.categoria || '').filter(c => c !== ''))]
+  const categoriasUnicas = [...new Set(materiales.map(m => m.categoria || 'Sin Categoría'))]
   const proveedoresUnicos = [...new Set(materiales.map(m => m.ultimo_proveedor || '').filter(p => p !== ''))]
   
   const statsPorCategoria = materiales.reduce((acc, curr) => {
@@ -107,6 +110,10 @@ function App() {
     }
   }, []);
 
+  // ==========================================
+  // 3. FUNCIONES DE CONEXIÓN
+  // ==========================================
+
   const manejarLogin = async (e) => { 
     e.preventDefault(); 
     try { 
@@ -141,11 +148,12 @@ function App() {
     } catch (e) { console.error("Error cargando datos:", e); } 
   }
 
+  // --- LÓGICA DE INGRESO MANUAL COMPLETO ---
   const registrarIngresoCompleto = async (e) => {
     e.preventDefault();
-    if (ingresoManual.esNuevo && !ingresoManual.nombre_nuevo) return alert("Falta el nombre del producto nuevo");
-    if (!ingresoManual.esNuevo && !ingresoManual.id_producto) return alert("Selecciona un producto existente");
-    if (!ingresoManual.cantidad || !ingresoManual.precio_unitario) return alert("Faltan datos numéricos");
+    if (ingresoManual.esNuevo && !ingresoManual.nombre_nuevo) return alert("⚠️ Falta el nombre del producto nuevo");
+    if (!ingresoManual.esNuevo && !ingresoManual.id_producto) return alert("⚠️ Selecciona un producto existente");
+    if (!ingresoManual.cantidad || !ingresoManual.precio_unitario) return alert("⚠️ Faltan datos numéricos");
 
     const payload = { ...ingresoManual };
 
@@ -154,12 +162,16 @@ function App() {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
         const d = await r.json();
+        
         if(d.success) {
             alert("✅ Ingreso registrado con éxito");
             setIngresoManual({ ...ingresoManual, nombre_nuevo: '', cantidad: '', precio_unitario: '', proveedor: '', recibido_por: '' });
             obtenerDatos();
-        } else { alert("Error al registrar"); }
-    } catch (e) { alert("Error de conexión"); }
+        } else {
+            // AQUÍ ESTÁ LA CLAVE: El mensaje de error detallado
+            alert("❌ Error al registrar: " + (d.error || "Revisa si la Base de Datos está actualizada."));
+        }
+    } catch (e) { alert("Error de conexión: " + e.message); }
   }
 
   const abrirEdicion = (prod) => {
@@ -214,7 +226,7 @@ function App() {
       if (!r.ok) throw new Error(`Error: ${r.statusText}`);
       const d = await r.json();
       if (d.success) {
-        d.productos.length === 0 ? alert("⚠️ No se detectaron productos. El formato PDF es difícil de leer.") : setProductosFactura(d.productos);
+        d.productos.length === 0 ? alert("⚠️ No se detectaron productos. El sistema buscó filas con el formato de tu Orden de Compra.") : setProductosFactura(d.productos);
       } else { alert("❌ Error leyendo factura."); }
     } catch (error) { alert(`Error de conexión: ${error.message}`); } 
     finally { setCargandoFactura(false); e.target.value = null; }
@@ -251,7 +263,33 @@ function App() {
 
   useEffect(() => { if(usuarioLogueado) obtenerDatos() }, [usuarioLogueado, menuActivo])
 
-  if (!usuarioLogueado) return ( <div className="min-h-screen flex bg-slate-50 font-sans"><div className="hidden lg:flex lg:w-1/2 bg-slate-900 flex-col justify-between p-16 relative overflow-hidden"><div className="absolute top-0 left-0 w-64 h-64 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div><div className="relative z-10"><h1 className="text-white text-4xl font-bold flex items-center gap-3"><span className="text-blue-500">●</span> ObraLink</h1></div><div className="relative z-10"><blockquote className="text-2xl text-slate-300 font-medium leading-relaxed">"El éxito de una obra comienza con un inventario ordenado."</blockquote><p className="mt-6 text-slate-500 text-sm tracking-widest uppercase">Sistema de Gestión Integral v3.0</p></div></div><div className="w-full lg:w-1/2 flex items-center justify-center p-8"><div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-none lg:shadow-none sm:shadow-xl"><div className="text-center mb-10"><h2 className="text-3xl font-bold text-slate-800">Bienvenido</h2></div><form onSubmit={manejarLogin} className="space-y-6"><div><label className="block text-sm font-semibold text-slate-700 mb-2">Correo</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><IconoMail /></div><input type="email" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg" value={loginData.email} onChange={e=>setLoginData({...loginData, email:e.target.value})} /></div></div><div><label className="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><IconoLock /></div><input type="password" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg" value={loginData.password} onChange={e=>setLoginData({...loginData, password:e.target.value})} /></div></div><div className="flex items-center gap-2"><input type="checkbox" id="recordar" checked={recordarSesion} onChange={(e) => setRecordarSesion(e.target.checked)}/><label htmlFor="recordar" className="text-sm text-slate-600 cursor-pointer">Mantener sesión iniciada</label></div>{errorLogin && (<div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex justify-center"><span>⚠️</span> {errorLogin}</div>)}<button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg">INGRESAR AL SISTEMA</button></form></div></div></div> )
+  // ==========================================
+  // 4. RENDERIZADO (VISUAL)
+  // ==========================================
+
+  if (!usuarioLogueado) {
+    return (
+      <div className="min-h-screen flex bg-slate-50 font-sans">
+        <div className="hidden lg:flex lg:w-1/2 bg-slate-900 flex-col justify-between p-16 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-64 h-64 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
+          <div className="relative z-10"><h1 className="text-white text-4xl font-bold flex items-center gap-3"><span className="text-blue-500">●</span> ObraLink</h1></div>
+          <div className="relative z-10"><blockquote className="text-2xl text-slate-300 font-medium leading-relaxed">"El éxito de una obra comienza con un inventario ordenado."</blockquote><p className="mt-6 text-slate-500 text-sm tracking-widest uppercase">Sistema de Gestión Integral v3.0</p></div>
+        </div>
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+          <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-none lg:shadow-none sm:shadow-xl">
+            <div className="text-center mb-10"><h2 className="text-3xl font-bold text-slate-800">Bienvenido</h2></div>
+            <form onSubmit={manejarLogin} className="space-y-6">
+              <div><label className="block text-sm font-semibold text-slate-700 mb-2">Correo</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><IconoMail /></div><input type="email" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg" value={loginData.email} onChange={e=>setLoginData({...loginData, email:e.target.value})} /></div></div>
+              <div><label className="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><IconoLock /></div><input type="password" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg" value={loginData.password} onChange={e=>setLoginData({...loginData, password:e.target.value})} /></div></div>
+              <div className="flex items-center gap-2"><input type="checkbox" id="recordar" checked={recordarSesion} onChange={(e) => setRecordarSesion(e.target.checked)}/><label htmlFor="recordar" className="text-sm text-slate-600 cursor-pointer">Mantener sesión iniciada</label></div>
+              {errorLogin && (<div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex justify-center"><span>⚠️</span> {errorLogin}</div>)}
+              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg">INGRESAR AL SISTEMA</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans text-slate-700 relative">
