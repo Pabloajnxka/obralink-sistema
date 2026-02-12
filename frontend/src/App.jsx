@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-// IMPORTAMOS LOS ICONOS (Asegúrate de tener src/components/Icons.jsx)
+// IMPORTAMOS LOS ICONOS
 import { 
   IconoHome, IconoBox, IconoHistory, IconoBuilding, IconoIn, 
   IconoOut, IconoChart, IconoMail, IconoLock, IconoFilter, 
@@ -26,6 +26,9 @@ function App() {
   const [busquedaHistorial, setBusquedaHistorial] = useState('')
   const [filtroTipoHistorial, setFiltroTipoHistorial] = useState('TODOS')
 
+  // Estado para controlar qué obra estamos viendo en detalle
+  const [obraSeleccionada, setObraSeleccionada] = useState(null)
+
   const [ingresoManual, setIngresoManual] = useState({
     esNuevo: false,
     id_producto: '',
@@ -47,13 +50,12 @@ function App() {
 
   const [formObra, setFormObra] = useState({ nombre: '', cliente: '', presupuesto: '' })
   
-  // MODIFICADO: Agregamos 'recibido_por' para las salidas
   const [movimientoData, setMovimientoData] = useState({ 
     id_producto: '', 
     cantidad: '', 
     id_obra: '', 
     fecha: new Date().toISOString().split('T')[0],
-    recibido_por: '' // Nuevo campo
+    recibido_por: ''
   })
   
   const [tabIngreso, setTabIngreso] = useState('MANUAL')
@@ -121,9 +123,8 @@ function App() {
       const rProd = await fetch(`${API_URL}/productos`); const dProd = await rProd.json(); setMateriales(dProd);
       const rObras = await fetch(`${API_URL}/obras`); const dObras = await rObras.json(); setObras(dObras);
       if (dObras.length > 0 && !movimientoData.id_obra) { setMovimientoData(prev => ({...prev, id_obra: dObras[0].id})) }
-      if (menuActivo === 'Historial' || menuActivo === 'Inicio' || menuActivo === 'Obras') { 
-        const rHist = await fetch(`${API_URL}/movimientos`); const dHist = await rHist.json(); setHistorial(dHist); 
-      }
+      // Siempre cargamos historial para poder filtrar los detalles de obra
+      const rHist = await fetch(`${API_URL}/movimientos`); const dHist = await rHist.json(); setHistorial(dHist); 
     } catch (e) { console.error("Error cargando datos:", e); } 
   }
 
@@ -184,7 +185,6 @@ function App() {
     let obraFinal = null;
     if (tipo === 'SALIDA') { if(!movimientoData.id_obra) return alert("Debe seleccionar una obra de destino"); obraFinal = movimientoData.id_obra; }
     
-    // MODIFICADO: Enviamos 'recibido_por'
     await fetch(`${API_URL}/movimientos`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
@@ -194,7 +194,7 @@ function App() {
             cantidad: movimientoData.cantidad, 
             id_obra: obraFinal,
             fecha: movimientoData.fecha,
-            recibido_por: movimientoData.recibido_por // Enviamos quien retira
+            recibido_por: movimientoData.recibido_por
         }) 
     }); 
     setMovimientoData({ ...movimientoData, cantidad: '', recibido_por: '' }); obtenerDatos();
@@ -256,7 +256,11 @@ function App() {
     setIdEditando(prod.id);
     setMostrarModalEdicion(true);
  }
-  const cambiarMenu = (nuevoMenu) => { setMenuActivo(nuevoMenu); setMenuMovilAbierto(false); }
+  const cambiarMenu = (nuevoMenu) => { 
+      setMenuActivo(nuevoMenu); 
+      setMenuMovilAbierto(false); 
+      setObraSeleccionada(null); // Reseteamos la selección al cambiar de menú
+  }
   const calcularMaterialesEnObra = (obraId) => historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, item) => acc + parseInt(item.cantidad), 0);
 
   useEffect(() => { if(usuarioLogueado) obtenerDatos() }, [usuarioLogueado, menuActivo])
@@ -511,36 +515,96 @@ function App() {
             </div>
           )}
 
+          {/* SECCIÓN OBRAS MODIFICADA: Ahora incluye VISTA DE DETALLE */}
           {menuActivo === 'Obras' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full content-start">
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-fit overflow-hidden">
-                <div className="bg-slate-800 px-6 py-4 border-b border-slate-700"><h3 className="font-bold text-white text-lg uppercase flex items-center gap-2"><IconoBriefcase/> Gestión de Proyectos</h3><p className="text-xs text-slate-400 mt-1">Crea centros de costos para asignar materiales.</p></div>
-                <form onSubmit={guardarObra} className="p-6 space-y-4">
-                  <div><label className="text-xs font-bold text-slate-500 block mb-1">Nombre del Proyecto</label><input required value={formObra.nombre} onChange={e=>setFormObra({...formObra, nombre: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" placeholder="Ej: Edificio Centro" /></div>
-                  <div><label className="text-xs font-bold text-slate-500 block mb-1">Cliente / Encargado</label><input required value={formObra.cliente} onChange={e=>setFormObra({...formObra, cliente: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" placeholder="Ej: Constructora XYZ" /></div>
-                  {rolUsuario === 'ADMIN' && (<div><label className="text-xs font-bold text-slate-500 block mb-1">Presupuesto ($)</label><input value={formObra.presupuesto} onChange={e=>setFormObra({...formObra, presupuesto: e.target.value})} type="number" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" /></div>)}
-                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded shadow-md transition active:scale-95">CREAR NUEVO PROYECTO</button>
-                </form>
-              </div>
-              <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-min">
-                 {obras.map(o => (
-                   <div key={o.id} className={`bg-white p-5 rounded-xl shadow-sm border border-slate-200 relative group hover:shadow-md transition ${o.nombre === 'Bodega Central' ? 'border-l-4 border-l-blue-600' : 'border-l-4 border-l-orange-500'}`}>
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex items-center gap-3">
-                           <div className={`p-3 rounded-lg ${o.nombre === 'Bodega Central' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}><IconoBuilding /></div>
-                           <div><h3 className="font-bold text-slate-800 text-lg leading-tight">{o.nombre}</h3><p className="text-xs text-slate-500 font-medium uppercase mt-1">{o.cliente}</p></div>
+            <>
+              {/* VISTA 1: LISTADO DE OBRAS (Solo si NO hay obra seleccionada) */}
+              {!obraSeleccionada ? (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full content-start">
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-fit overflow-hidden">
+                    <div className="bg-slate-800 px-6 py-4 border-b border-slate-700"><h3 className="font-bold text-white text-lg uppercase flex items-center gap-2"><IconoBriefcase/> Gestión de Proyectos</h3><p className="text-xs text-slate-400 mt-1">Crea centros de costos para asignar materiales.</p></div>
+                    <form onSubmit={guardarObra} className="p-6 space-y-4">
+                      <div><label className="text-xs font-bold text-slate-500 block mb-1">Nombre del Proyecto</label><input required value={formObra.nombre} onChange={e=>setFormObra({...formObra, nombre: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" placeholder="Ej: Edificio Centro" /></div>
+                      <div><label className="text-xs font-bold text-slate-500 block mb-1">Cliente / Encargado</label><input required value={formObra.cliente} onChange={e=>setFormObra({...formObra, cliente: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" placeholder="Ej: Constructora XYZ" /></div>
+                      {rolUsuario === 'ADMIN' && (<div><label className="text-xs font-bold text-slate-500 block mb-1">Presupuesto ($)</label><input value={formObra.presupuesto} onChange={e=>setFormObra({...formObra, presupuesto: e.target.value})} type="number" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" /></div>)}
+                      <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded shadow-md transition active:scale-95">CREAR NUEVO PROYECTO</button>
+                    </form>
+                  </div>
+                  <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-min">
+                     {obras.map(o => (
+                       <div key={o.id} className={`bg-white p-5 rounded-xl shadow-sm border border-slate-200 relative group hover:shadow-md transition ${o.nombre === 'Bodega Central' ? 'border-l-4 border-l-blue-600' : 'border-l-4 border-l-orange-500'}`}>
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-3">
+                               <div className={`p-3 rounded-lg ${o.nombre === 'Bodega Central' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}><IconoBuilding /></div>
+                               <div><h3 className="font-bold text-slate-800 text-lg leading-tight">{o.nombre}</h3><p className="text-xs text-slate-500 font-medium uppercase mt-1">{o.cliente}</p></div>
+                            </div>
+                            {o.nombre !== 'Bodega Central' && (<button onClick={() => eliminarObra(o.id, o.nombre)} className="text-slate-300 hover:text-red-500 transition"><IconoTrash /></button>)}
+                          </div>
+                          <div className="space-y-3">
+                            <div className="bg-slate-50 p-3 rounded border border-slate-100 flex justify-between items-center"><span className="text-xs font-bold text-slate-500 uppercase">Estado</span><span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-full">● En Ejecución</span></div>
+                            {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString()}</span></div>)}
+                            <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2"><span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1"><IconoBox/> {o.nombre === 'Bodega Central' ? 'Valor Materiales' : 'Materiales Recibidos'}</span><span className="text-lg font-bold text-slate-800">{o.nombre === 'Bodega Central' ? `$${materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0).toLocaleString('es-CL')}` : <span>{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span>}</span></div>
+                            
+                            {/* BOTÓN NUEVO: VER DETALLES */}
+                            {o.nombre !== 'Bodega Central' && (
+                                <button onClick={() => setObraSeleccionada(o)} className="w-full mt-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded transition">
+                                    VER MATERIALES EN OBRA
+                                </button>
+                            )}
+                          </div>
+                       </div>
+                     ))}
+                  </div>
+                </div>
+              ) : (
+                /* VISTA 2: DETALLE DE LA OBRA (Se muestra cuando obraSeleccionada tiene datos) */
+                <div className="bg-white rounded shadow-sm border border-slate-200 h-full flex flex-col">
+                    <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => setObraSeleccionada(null)} className="bg-white border border-slate-300 p-2 rounded-full hover:bg-slate-100 text-slate-500 transition">
+                                ⬅
+                            </button>
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><IconoBuilding/> {obraSeleccionada.nombre}</h2>
+                                <p className="text-xs text-slate-500 font-bold uppercase">{obraSeleccionada.cliente}</p>
+                            </div>
                         </div>
-                        {o.nombre !== 'Bodega Central' && (<button onClick={() => eliminarObra(o.id, o.nombre)} className="text-slate-300 hover:text-red-500 transition"><IconoTrash /></button>)}
-                      </div>
-                      <div className="space-y-3">
-                        <div className="bg-slate-50 p-3 rounded border border-slate-100 flex justify-between items-center"><span className="text-xs font-bold text-slate-500 uppercase">Estado</span><span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-full">● En Ejecución</span></div>
-                        {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString()}</span></div>)}
-                        <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2"><span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1"><IconoBox/> {o.nombre === 'Bodega Central' ? 'Valor Materiales' : 'Materiales Recibidos'}</span><span className="text-lg font-bold text-slate-800">{o.nombre === 'Bodega Central' ? `$${materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0).toLocaleString('es-CL')}` : <span>{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span>}</span></div>
-                      </div>
-                   </div>
-                 ))}
-              </div>
-            </div>
+                        <div className="text-right">
+                             <p className="text-xs font-bold text-slate-400 uppercase">Total Items Recibidos</p>
+                             <p className="text-2xl font-bold text-orange-600">{calcularMaterialesEnObra(obraSeleccionada.id)} <span className="text-sm text-slate-400">unid.</span></p>
+                        </div>
+                    </div>
+                    <div className="overflow-auto flex-1 p-6">
+                        <h3 className="font-bold text-slate-600 mb-4 text-sm uppercase border-b pb-2">Lista de Materiales Entregados</h3>
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold">
+                                <tr>
+                                    <th className="px-4 py-3">Fecha Entrega</th>
+                                    <th className="px-4 py-3">Producto</th>
+                                    <th className="px-4 py-3 text-center">Cantidad</th>
+                                    <th className="px-4 py-3">Quién Recibió</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {historial
+                                    .filter(h => h.id_obra === obraSeleccionada.id && h.tipo === 'SALIDA')
+                                    .map((mov, i) => (
+                                    <tr key={i} className="hover:bg-slate-50 transition">
+                                        <td className="px-4 py-3 font-mono text-xs text-slate-500">{new Date(mov.fecha).toLocaleDateString('es-CL', { timeZone: 'UTC' })}</td>
+                                        <td className="px-4 py-3 font-bold text-slate-700">{mov.nombre} <span className="font-normal text-slate-400 block text-xs">{mov.sku}</span></td>
+                                        <td className="px-4 py-3 text-center font-bold text-lg text-slate-800">{mov.cantidad}</td>
+                                        <td className="px-4 py-3 text-xs text-slate-600">{mov.recibido_por || 'Sin registro'}</td>
+                                    </tr>
+                                ))}
+                                {historial.filter(h => h.id_obra === obraSeleccionada.id && h.tipo === 'SALIDA').length === 0 && (
+                                    <tr><td colSpan="4" className="text-center py-8 text-slate-400 italic">No se han enviado materiales a esta obra aún.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+              )}
+            </>
           )}
 
           {menuActivo === 'Historial' && (
@@ -581,7 +645,6 @@ function App() {
                           <td className="px-4 py-3 text-center"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${mov.tipo === 'ENTRADA' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{mov.tipo}</span></td>
                           <td className="px-4 py-3 text-center font-bold text-slate-700 text-lg">{mov.cantidad}</td>
                           
-                          {/* COLUMNAS SEPARADAS */}
                           <td className="px-4 py-3 text-xs text-slate-500">{mov.proveedor || '-'}</td>
                           <td className="px-4 py-3 text-xs font-bold text-slate-700">{mov.recibido_por || '-'}</td>
 
