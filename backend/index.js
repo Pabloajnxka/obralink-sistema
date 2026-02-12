@@ -223,6 +223,11 @@ app.post('/login', async (req, res) => {
 // 3. FUNCIONES AVANZADAS E INFORMES
 // ==========================================
 
+// ==========================================
+// 4. REPORTES PDF (DISEÑO PROFESIONAL RECUPERADO)
+// ==========================================
+
+// --- REPORTE DE INVENTARIO (Estilo Azul/Tabla) ---
 app.get('/reporte-pdf', async (req, res) => {
   try {
     const { busqueda, categoria } = req.query; 
@@ -235,22 +240,210 @@ app.get('/reporte-pdf', async (req, res) => {
     if (conditions.length > 0) { queryText += ' WHERE ' + conditions.join(' AND '); }
     queryText += ' ORDER BY categoria ASC, nombre ASC';
 
-    const productos = await pool.query(queryText, queryParams);
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const resultado = await pool.query(queryText, queryParams);
+    const productos = resultado.rows;
+
+    // Cálculos para el resumen
+    const totalItems = productos.reduce((sum, p) => sum + p.stock_actual, 0);
+    const valorTotal = productos.reduce((sum, p) => sum + (p.stock_actual * p.precio_costo), 0);
+
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=inventario.pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=inventario_obralink.pdf');
     doc.pipe(res);
 
-    doc.fontSize(20).text('Reporte de Inventario', { align: 'center' });
-    doc.moveDown();
+    // --- ENCABEZADO AZUL ---
+    doc.rect(0, 0, 595, 100).fill('#2563eb'); // Fondo Azul
+    doc.fillColor('white').fontSize(28).font('Helvetica-Bold').text('ObraLink', 50, 30);
+    doc.fontSize(10).font('Helvetica').text('SISTEMA DE CONTROL INTELIGENTE', 50, 60, { characterSpacing: 2 });
+
+    // CAJA BLANCA CON FECHA
+    doc.roundedRect(400, 30, 150, 40, 5).fill('white');
+    doc.fillColor('#333').fontSize(8).font('Helvetica-Bold').text('REPORTE GENERADO', 410, 38);
+    doc.fontSize(10).font('Helvetica').text(new Date().toLocaleDateString('es-CL') + ' ' + new Date().toLocaleTimeString('es-CL'), 410, 52);
+
+    doc.moveDown(4);
+
+    // --- TABLA DE PRODUCTOS ---
+    let y = 130;
     
-    productos.rows.forEach(p => {
-      doc.fontSize(12).text(`${p.nombre} (${p.sku}) - Stock: ${p.stock_actual}`);
+    // Encabezados de Tabla
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#2563eb');
+    doc.text('PRODUCTO / SKU', 50, y);
+    doc.text('CATEGORÍA', 220, y);
+    doc.text('STOCK', 350, y, { width: 50, align: 'center' });
+    doc.text('COSTO UNIT.', 410, y, { width: 70, align: 'right' });
+    doc.text('VALOR TOTAL', 490, y, { width: 60, align: 'right' });
+    
+    // Línea separadora
+    doc.moveTo(50, y + 15).lineTo(550, y + 15).strokeColor('#2563eb').lineWidth(2).stroke();
+    y += 25;
+
+    // Filas
+    doc.font('Helvetica').fontSize(9).fillColor('#334155');
+    
+    productos.forEach((p, i) => {
+      // Fondo alternado para filas
+      if (i % 2 === 0) {
+        doc.rect(50, y - 5, 500, 20).fillColor('#f8fafc').fill();
+        doc.fillColor('#334155'); // Reset color texto
+      }
+
+      // Check de nueva página
+      if (y > 700) {
+        doc.addPage();
+        y = 50;
+      }
+
+      doc.font('Helvetica-Bold').text(p.nombre, 50, y);
+      doc.font('Helvetica').fontSize(7).text(p.sku, 50, y + 10);
+      
+      doc.fontSize(9).text(p.categoria || 'General', 220, y);
+      
+      // Stock en rojo si es 0
+      if (p.stock_actual <= 0) doc.fillColor('red');
+      doc.text(p.stock_actual, 350, y, { width: 50, align: 'center' });
+      doc.fillColor('#334155'); // Reset
+
+      doc.text('$' + p.precio_costo.toLocaleString('es-CL'), 410, y, { width: 70, align: 'right' });
+      doc.font('Helvetica-Bold').text('$' + (p.stock_actual * p.precio_costo).toLocaleString('es-CL'), 490, y, { width: 60, align: 'right' });
+      doc.font('Helvetica'); // Reset font
+
+      y += 25;
     });
+
+    // --- RESUMEN EJECUTIVO (Cuadro lateral) ---
+    y += 20;
+    if (y > 650) { doc.addPage(); y = 50; }
+
+    doc.roundedRect(350, y, 200, 70, 5).fill('#eff6ff'); // Fondo azul claro
+    doc.fillColor('#2563eb').font('Helvetica-Bold').fontSize(10).text('RESUMEN EJECUTIVO', 365, y + 10);
+    
+    doc.fillColor('#334155').font('Helvetica').fontSize(9);
+    doc.text('Total Unidades:', 365, y + 30);
+    doc.text(totalItems.toLocaleString('es-CL'), 480, y + 30, { align: 'right', width: 50 });
+    
+    doc.text('Valorización Total:', 365, y + 45);
+    doc.fillColor('#16a34a').font('Helvetica-Bold'); // Verde
+    doc.text('$' + valorTotal.toLocaleString('es-CL'), 450, y + 45, { align: 'right', width: 80 });
+
+    // --- FIRMAS ---
+    const yFirma = 750; // Posición fija abajo
+    doc.moveTo(50, yFirma).lineTo(200, yFirma).strokeColor('#333').lineWidth(1).stroke();
+    doc.fontSize(8).fillColor('#666').text('Firma Jefe de Bodega', 50, yFirma + 5, { width: 150, align: 'center' });
+
+    doc.moveTo(350, yFirma).lineTo(500, yFirma).stroke();
+    doc.text('Firma Administrador', 350, yFirma + 5, { width: 150, align: 'center' });
 
     doc.end();
   } catch (err) { res.status(500).send('Error PDF'); }
+});
+
+// --- REPORTE DE HISTORIAL (Estilo Azul/Tabla) ---
+app.get('/reporte-historial-pdf', async (req, res) => {
+  const { busqueda, tipo } = req.query;
+  try {
+    let query = `
+      SELECT m.fecha, m.tipo, m.cantidad, m.recibido_por, m.proveedor, p.nombre, p.sku, o.nombre as nombre_obra 
+      FROM movimientos m 
+      JOIN productos p ON m.id_producto = p.id 
+      LEFT JOIN obras o ON m.id_obra = o.id
+      ORDER BY m.fecha DESC
+    `;
+    const { rows } = await pool.query(query);
+    
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=historial_movimientos.pdf');
+    doc.pipe(res);
+
+    // --- ENCABEZADO AZUL ---
+    doc.rect(0, 0, 595, 100).fill('#2563eb');
+    doc.fillColor('white').fontSize(28).font('Helvetica-Bold').text('ObraLink', 50, 30);
+    doc.fontSize(10).font('Helvetica').text('HISTORIAL DE MOVIMIENTOS Y TRAZABILIDAD', 50, 60, { characterSpacing: 1 });
+
+    // CAJA BLANCA
+    doc.roundedRect(400, 30, 150, 40, 5).fill('white');
+    doc.fillColor('#333').fontSize(8).font('Helvetica-Bold').text('FECHA REPORTE', 410, 38);
+    doc.fontSize(10).font('Helvetica').text(new Date().toLocaleDateString('es-CL'), 410, 52);
+
+    doc.moveDown(5);
+
+    // --- TABLA ---
+    let y = 130;
+
+    // Headers
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#2563eb');
+    doc.text('FECHA', 50, y);
+    doc.text('TIPO', 120, y);
+    doc.text('PRODUCTO / SKU', 180, y);
+    doc.text('CANT.', 350, y, { width: 40, align: 'center' });
+    doc.text('RESPONSABLE / PROV.', 400, y);
+    
+    doc.moveTo(50, y + 12).lineTo(550, y + 12).lineWidth(1).strokeColor('#2563eb').stroke();
+    y += 20;
+
+    doc.font('Helvetica').fontSize(8).fillColor('#333');
+
+    rows.forEach((r, i) => {
+        if (y > 720) { doc.addPage(); y = 50; }
+        
+        // Alternar color fila
+        if (i % 2 === 0) { doc.rect(50, y - 4, 500, 18).fillColor('#f8fafc').fill(); doc.fillColor('#333'); }
+
+        // Fecha
+        doc.text(new Date(r.fecha).toLocaleDateString('es-CL', {timeZone: 'UTC'}), 50, y);
+        
+        // Tipo (Color)
+        if (r.tipo === 'ENTRADA') doc.fillColor('#16a34a').font('Helvetica-Bold').text('ENTRADA', 120, y);
+        else doc.fillColor('#dc2626').font('Helvetica-Bold').text('SALIDA', 120, y);
+        
+        // Producto
+        doc.fillColor('#333').font('Helvetica').text(r.nombre, 180, y, { width: 160, lineBreak: false, ellipsis: true });
+        doc.fontSize(7).fillColor('#666').text(r.sku, 180, y + 9);
+        
+        // Cantidad
+        doc.fontSize(9).font('Helvetica-Bold').fillColor('#000').text(r.cantidad, 350, y, { width: 40, align: 'center' });
+        
+        // Responsable
+        doc.fontSize(8).font('Helvetica').fillColor('#333');
+        const detalle = r.tipo === 'ENTRADA' ? (r.proveedor || 'Sin Prov.') : (r.recibido_por || 'En Obra');
+        doc.text(detalle, 400, y, { width: 140, ellipsis: true });
+
+        y += 25;
+    });
+
+    // --- RESUMEN DEL PERIODO ---
+    y += 10;
+    if (y > 650) { doc.addPage(); y = 50; }
+    
+    // Contamos entradas y salidas
+    const totalEntradas = rows.filter(r => r.tipo === 'ENTRADA').reduce((a, b) => a + b.cantidad, 0);
+    const totalSalidas = rows.filter(r => r.tipo === 'SALIDA').reduce((a, b) => a + b.cantidad, 0);
+
+    doc.roundedRect(350, y, 200, 60, 5).fill('#eff6ff');
+    doc.fillColor('#2563eb').font('Helvetica-Bold').fontSize(9).text('RESUMEN DEL PERIODO', 365, y + 10);
+    
+    doc.fillColor('#333').font('Helvetica').text('Total Entradas (Unid):', 365, y + 25);
+    doc.fillColor('#16a34a').text(totalEntradas, 500, y + 25, { align: 'right' });
+    
+    doc.fillColor('#333').text('Total Salidas (Unid):', 365, y + 40);
+    doc.fillColor('#dc2626').text(totalSalidas, 500, y + 40, { align: 'right' });
+
+    // --- FIRMAS ---
+    const yFirma = 750; 
+    doc.moveTo(50, yFirma).lineTo(200, yFirma).strokeColor('#333').lineWidth(1).stroke();
+    doc.fontSize(8).fillColor('#666').text('Firma Jefe de Bodega', 50, yFirma + 5, { width: 150, align: 'center' });
+
+    doc.moveTo(350, yFirma).lineTo(500, yFirma).stroke();
+    doc.text('Firma Administrador', 350, yFirma + 5, { width: 150, align: 'center' });
+
+    doc.end();
+  } catch (err) { 
+      console.error(err);
+      res.status(500).send('Error PDF Historial'); 
+  }
 });
 
 // Registrar Ingreso Completo (Manual) con DOBLE FECHA
