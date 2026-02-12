@@ -210,15 +210,31 @@ function App() {
     }
   }
 
+// LÓGICA REAL PARA GUARDAR EN BASE DE DATOS
   const ingresarProductosFactura = async () => {
-    if(!window.confirm(`¿Confirmas el ingreso de ${productosFactura.length} productos al inventario?`)) return;
-    
-    // Aquí iría la lógica para guardar cada producto.
-    // Para la demo, simularemos que se guardan y actualizamos.
-    alert("✅ Todos los productos han sido ingresados correctamente al inventario.");
-    setProductosFactura([]);
-    setTabIngreso('MANUAL');
-    obtenerDatos();
+    if(!window.confirm(`¿Confirmas el ingreso de ${productosFactura.length} productos al inventario?\n\n(Se crearán los que no existan)`)) return;
+  
+    try {
+      const r = await fetch(`${API_URL}/ingreso-masivo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productos: productosFactura })
+      });
+
+      const d = await r.json();
+
+      if (d.success) {
+        alert("✅ ¡Inventario actualizado! Los productos nuevos han sido creados.");
+        setProductosFactura([]);
+        setTabIngreso('MANUAL');
+        obtenerDatos(); // Recargar la tabla para ver los cambios
+      } else {
+        alert("Hubo un error al guardar los productos.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error de conexión al guardar.");
+    }
   }
 
   const eliminarProducto = async (id, nombre) => {

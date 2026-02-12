@@ -3,7 +3,12 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const PDFDocument = require('pdfkit'); // Importamos PDFKit al inicio
 
+
+const multer = require('multer');
+const pdf = require('pdf-parse');
+const upload = multer({ storage: multer.memoryStorage() });
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
@@ -486,44 +491,50 @@ app.get('/reporte-historial-pdf', async (req, res) => {
   }
 });
 
-// 12. SUBIR Y LEER FACTURA (MEJORADO)
+// 12.A SUBIR Y LEER FACTURA (PARSEO AVANZADO)
 app.post('/subir-factura', upload.single('factura'), async (req, res) => {
   if (!req.file) return res.status(400).send('No se subió ningún archivo');
 
   try {
     const dataBuffer = req.file.buffer;
     const data = await pdf(dataBuffer);
-    const text = data.text; // Texto crudo del PDF
+    const text = data.text; 
 
-    console.log("📄 Texto extraído del PDF:", text); // Para depurar en los logs de Render
-
-    // LÓGICA DE EXTRACCIÓN FLEXIBLE
-    // Convertimos todo a minúsculas para buscar sin importar mayúsculas
-    const textoBajo = text.toLowerCase();
+    // Lógica para tu formato específico (CSV dentro de PDF)
+    // El PDF trae líneas tipo: "1","COD","Desc","Cant","Precio"
     const productosDetectados = [];
+    
+    // 1. Limpiamos el texto para unificar saltos de línea
+    const lineas = text.split(/\r\n|\n/);
 
-    // Catálogo con palabras clave simples (una sola palabra clave basta)
-    const catalogoInteligente = [
-      { clave: 'camara', nombre: 'Camara IP Hikvision', precio: 65000, cantidad_default: 3 },
-      { clave: 'switch', nombre: 'Switch PoE 4 Canales', precio: 35000, cantidad_default: 1 },
-      { clave: 'utp', nombre: 'Cable UTP Cat6', precio: 130000, cantidad_default: 1 },
-      { clave: 'tubería', nombre: 'Materiales Canalización', precio: 150000, cantidad_default: 1 }, // Tilde
-      { clave: 'tuberia', nombre: 'Materiales Canalización', precio: 150000, cantidad_default: 1 }, // Sin tilde
-      { clave: 'ferreteria', nombre: 'Insumos Ferretería', precio: 70000, cantidad_default: 1 },
-      { clave: 'mano de obra', nombre: 'Servicio Mano de Obra', precio: 300000, cantidad_default: 1 }
-    ];
+    lineas.forEach(linea => {
+      // Buscamos líneas que parezcan filas de tu tabla: "número","texto","texto"...
+      // Regex: Busca comillas, algo, comillas, coma...
+      if (linea.includes('","') && (linea.startsWith('"') || !isNaN(parseInt(linea.charAt(0))))) {
+        
+        // Quitamos comillas iniciales/finales y separamos por ","
+        const partes = linea.replace(/^"|"$/g, '').split('","');
+        
+        // Tu formato parece ser: [Linea, Código, Descripción, Cantidad, Precio Unit, Total]
+        // Ejemplo: ["1", "PROC IVA", "Camara...", "3", "65.000,00", "195.000"]
+        if (partes.length >= 5) {
+           const descripcion = partes[2];
+           const cantidad = parseInt(partes[3]);
+           
+           // Limpiar precio (quitar puntos y cambiar coma decimal si es necesario)
+           // "65.000,00" -> 65000
+           let precioSucio = partes[4]; 
+           let precioLimpio = parseInt(precioSucio.replace(/\./g, '').split(',')[0]);
 
-    catalogoInteligente.forEach(item => {
-      if (textoBajo.includes(item.clave)) {
-        // Evitar duplicados (por ejemplo tuberia con y sin tilde)
-        const yaExiste = productosDetectados.find(p => p.nombre === item.nombre);
-        if (!yaExiste) {
-           productosDetectados.push({
-            nombre: item.nombre,
-            cantidad: item.cantidad_default, // Usamos la cantidad que sabemos que viene en este PDF ejemplo
-            precio_estimado: item.precio,
-            sku: 'DETECTADO-' + Math.floor(Math.random() * 1000)
-          });
+           if (descripcion && !isNaN(cantidad)) {
+             productosDetectados.push({
+               nombre: descripcion.trim(),
+               cantidad: cantidad,
+               precio_costo: precioLimpio || 0,
+               sku: partes[1] || 'NUEVO-001', // Usamos el código de la factura o uno genérico
+               categoria: 'Importado' // Categoría por defecto para nuevos
+             });
+           }
         }
       }
     });
@@ -531,8 +542,78 @@ app.post('/subir-factura', upload.single('factura'), async (req, res) => {
     res.json({ success: true, productos: productosDetectados });
 
   } catch (err) {
-    console.error(err);
+    console.error("Error PDF:", err);
     res.status(500).send('Error procesando factura');
+  }
+});
+
+// 12.B INGRESO MASIVO (CREAR PRODUCTOS SI NO EXISTEN)
+app.post('/ingreso-masivo', async (req, res) => {
+  const { productos } = req.body; // Array de productos detectados
+  
+  try {
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN'); // Iniciar transacción (todo o nada)
+
+      for (const p of productos) {
+        // 1. Verificar si el producto ya existe (por nombre exacto o SKU)
+        // Usamos ILIKE para ignorar mayúsculas/minúsculas en el nombre
+        const checkRes = await client.query(
+          'SELECT id, stock_actual FROM productos WHERE nombre ILIKE $1', 
+          [p.nombre]
+        );
+
+        let idProducto;
+
+        if (checkRes.rows.length > 0) {
+          // A) EXISTE: Solo actualizamos stock
+          idProducto = checkRes.rows[0].id;
+          const nuevoStock = checkRes.rows[0].stock_actual + parseInt(p.cantidad);
+          
+          await client.query(
+            'UPDATE productos SET stock_actual = $1 WHERE id = $2',
+            [nuevoStock, idProducto]
+          );
+
+        } else {
+          // B) NO EXISTE: Lo creamos desde cero
+          // Generamos un SKU si el de la factura es muy genérico
+          const skuFinal = p.sku === 'PR_OC_IVA' 
+              ? `IMP-${Math.floor(1000 + Math.random() * 9000)}` 
+              : p.sku;
+
+          const insertRes = await client.query(
+            `INSERT INTO productos (nombre, sku, categoria, precio_costo, precio_venta, stock_actual)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+            [p.nombre, skuFinal, 'Nuevos Ingresos', p.precio_costo, Math.floor(p.precio_costo * 1.3), p.cantidad]
+          );
+          idProducto = insertRes.rows[0].id;
+        }
+
+        // 2. Registrar el movimiento en el historial
+        // Ojo: Asumimos 'Bodega Central' (null en id_obra) para ingresos
+        await client.query(
+          `INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, id_obra)
+           VALUES ($1, 'ENTRADA', $2, NOW(), NULL)`,
+          [idProducto, p.cantidad]
+        );
+      }
+
+      await client.query('COMMIT'); // Guardar cambios
+      res.json({ success: true, message: 'Productos procesados correctamente' });
+
+    } catch (e) {
+      await client.query('ROLLBACK'); // Cancelar si algo falla
+      throw e;
+    } finally {
+      client.release();
+    }
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error en ingreso masivo');
   }
 });
 
