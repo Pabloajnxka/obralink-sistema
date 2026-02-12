@@ -80,16 +80,17 @@ function App() {
     return coincideTexto && coincideTipo;
   })
 
-  // --- LOGICA CORREGIDA: ORDEN DESCENDENTE (MÁS NUEVO ARRIBA) ---
-  // El backend ya devuelve los datos ordenados por fecha DESC (más nuevo primero)
-  // Así que solo tomamos los primeros 5 y LISTO. No usamos .reverse().
+  // --- CORRECCIÓN DEFINITIVA DE ORDENAMIENTO ---
+  // Usamos .sort((a,b) => b.id - a.id) para asegurar que el ID más alto (el último creado) quede primero.
   
   const ultimosIngresos = historial
     .filter(h => h.tipo === 'ENTRADA')
+    .sort((a, b) => b.id - a.id) // ESTO GARANTIZA QUE EL ÚLTIMO REGISTRO ESTÉ ARRIBA
     .slice(0, 5); 
 
   const ultimasSalidas = historial
     .filter(h => h.tipo === 'SALIDA')
+    .sort((a, b) => b.id - a.id) // LO MISMO AQUÍ
     .slice(0, 5);
 
   const obrasReales = obras.filter(o => o.nombre !== 'Bodega Central');
