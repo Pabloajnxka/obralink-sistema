@@ -80,9 +80,16 @@ function App() {
     return coincideTexto && coincideTipo;
   })
 
-  // --- NUEVO: FILTRO PARA "LO ÚLTIMO AGREGADO" EN LA VISTA DE INGRESO ---
-  // Filtramos solo ENTRADAS y tomamos las primeras 5 (ya vienen ordenadas por fecha DESC)
-  const ultimosIngresos = historial.filter(h => h.tipo === 'ENTRADA').slice(0, 5);
+  // --- MODIFICADO: ORDEN CRONOLÓGICO PARA INGRESO ---
+  // 1. Filtramos solo ENTRADAS.
+  // 2. Tomamos las últimas 10 (slice 0,10 del historial que viene DESC).
+  // 3. Invertimos el orden (.reverse()) para que se muestre:
+  //    Arriba: El más antiguo de esos 10.
+  //    Abajo: El que acabas de ingresar (el más nuevo).
+  const ultimosIngresos = historial
+    .filter(h => h.tipo === 'ENTRADA')
+    .slice(0, 10)
+    .reverse();
 
   const obrasReales = obras.filter(o => o.nombre !== 'Bodega Central');
 
@@ -313,6 +320,7 @@ function App() {
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .glass-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
       `}</style>
 
       <div className="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center z-50 shadow-md">
@@ -463,7 +471,7 @@ function App() {
                 {/* === NUEVA SECCIÓN: LO ÚLTIMO AGREGADO (VISIBLE SIEMPRE) === */}
                 <div className="bg-slate-50 border-t border-slate-200 pt-6">
                     <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 pl-2 flex items-center gap-2">
-                        <IconoHistory className="w-4 h-4"/> Últimos Ingresos Registrados
+                        <IconoHistory className="w-4 h-4"/> Últimos Ingresos (Orden Cronológico)
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
                         {ultimosIngresos.length > 0 ? (
@@ -471,12 +479,12 @@ function App() {
                                 <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center animate-fade-in hover:shadow-md transition-shadow">
                                     <div className="flex items-center gap-4">
                                         <div className="bg-emerald-100 text-emerald-600 w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs">
+                                            {/* Contador visual simple 1, 2, 3... */}
                                             {i + 1}
                                         </div>
                                         <div>
                                             <p className="font-bold text-slate-700 text-sm">{mov.nombre}</p>
                                             <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
-                                                {/* Mostramos la hora exacta de carga para referencia del trabajador */}
                                                 Cargado a las: {new Date(mov.fecha_registro).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • SKU: {mov.sku}
                                             </p>
                                         </div>
@@ -530,36 +538,23 @@ function App() {
                 </div>
                 
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 h-fit relative">
-                    {/* MODAL DE EDICIÓN MEJORADO */}
                     {mostrarModalEdicion && (
-                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
                             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
                                 <h3 className="font-bold text-xl mb-6 flex items-center gap-3 text-slate-800 border-b pb-4"><IconoEdit/> Editar Producto</h3>
                                 <form onSubmit={guardarEdicion} className="space-y-5">
                                     <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Nombre del Producto</label><input className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formulario.nombre} onChange={manejarInput} name="nombre" /></div>
                                     <div className="grid grid-cols-2 gap-5">
                                         <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">SKU</label><input className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50" value={formulario.sku} onChange={manejarInput} name="sku" /></div>
-                                        <div>
-                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Categoría</label>
-                                            <input className="w-full border border-slate-300 p-3 rounded-xl" value={formulario.categoria} onChange={manejarInput} name="categoria" list="lista-categorias" />
-                                        </div>
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Categoría</label><input className="w-full border border-slate-300 p-3 rounded-xl" value={formulario.categoria} onChange={manejarInput} name="categoria" list="lista-categorias" /></div>
                                     </div>
-                                    
                                     {rolUsuario === 'ADMIN' && (
-                                       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                                          <label className="text-xs font-bold text-blue-600 block mb-1 uppercase tracking-wide">Precio Costo Unitario ($)</label>
-                                          <input className="w-full border border-blue-200 p-3 rounded-xl font-bold text-lg bg-white" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" />
-                                       </div>
+                                       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100"><label className="text-xs font-bold text-blue-600 block mb-1 uppercase tracking-wide">Precio Costo Unitario ($)</label><input className="w-full border border-blue-200 p-3 rounded-xl font-bold text-lg bg-white" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" /></div>
                                     )}
-
                                     <div className="grid grid-cols-2 gap-5 pt-2">
-                                        <div>
-                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Proveedor (Último)</label>
-                                            <input className="w-full border border-slate-300 p-3 rounded-xl" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" list="lista-proveedores" />
-                                        </div>
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Proveedor (Último)</label><input className="w-full border border-slate-300 p-3 rounded-xl" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" list="lista-proveedores" /></div>
                                         <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Recibido Por</label><input className="w-full border border-slate-300 p-3 rounded-xl" placeholder="Nombre" value={formulario.recibido_por} onChange={manejarInput} name="recibido_por" /></div>
                                     </div>
-
                                     <div className="flex gap-3 mt-8">
                                         <button type="button" onClick={() => setMostrarModalEdicion(false)} className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3.5 rounded-xl font-bold transition">Cancelar</button>
                                         <button className="w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-200 transition">Guardar Cambios</button>
