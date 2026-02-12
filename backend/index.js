@@ -617,6 +617,68 @@ app.post('/ingreso-masivo', async (req, res) => {
   }
 });
 
+
+// 13. REGISTRAR INGRESO COMPLETO (NUEVO O EXISTENTE)
+app.post('/registrar-ingreso-completo', async (req, res) => {
+  const { 
+    esNuevo, id_producto, nombre, categoria, 
+    cantidad, precio_unitario, fecha, 
+    proveedor, recibido_por 
+  } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    let finalId = id_producto;
+
+    // 1. SI ES NUEVO: CREAR PRODUCTO
+    if (esNuevo) {
+      // Generamos un SKU automático si es nuevo
+      const skuAuto = nombre.substring(0, 3).toUpperCase() + '-' + Math.floor(Math.random() * 10000);
+      
+      const resInsert = await client.query(
+        `INSERT INTO productos (nombre, sku, categoria, precio_costo, stock_actual) 
+         VALUES ($1, $2, $3, $4, 0) RETURNING id`, // Iniciamos stock en 0 para sumarlo después
+        [nombre, skuAuto, categoria || 'General', precio_unitario]
+      );
+      finalId = resInsert.rows[0].id;
+    } else {
+      // 2. SI EXISTE: ACTUALIZAR PRECIO COSTO (Al más reciente)
+      await client.query(
+        `UPDATE productos SET precio_costo = $1 WHERE id = $2`,
+        [precio_unitario, finalId]
+      );
+    }
+
+    // 3. ACTUALIZAR STOCK (Sumar)
+    await client.query(
+      `UPDATE productos SET stock_actual = stock_actual + $1 WHERE id = $2`,
+      [cantidad, finalId]
+    );
+
+    // 4. REGISTRAR MOVIMIENTO (Historial)
+    // Guardamos proveedor y receptor en campos genéricos o concatenados si no tienes columnas específicas
+    // Para simplificar, asumimos que el historial guarda la transacción base.
+    await client.query(
+      `INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, id_obra) 
+       VALUES ($1, 'ENTRADA', $2, $3, NULL)`,
+      [finalId, cantidad, fecha || new Date()]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Ingreso registrado correctamente' });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Error registrando ingreso' });
+  } finally {
+    client.release();
+  }
+});
+
 // ==========================================
 // 4. INICIO DEL SERVIDOR
 // ==========================================

@@ -9,7 +9,6 @@ const IconoHistory = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" he
 const IconoBuilding = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="22"/><line x1="15" y1="22" x2="15" y2="22"/><line x1="12" y1="22" x2="12" y2="22"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
 const IconoIn = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
 const IconoOut = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
-const IconoTag = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
 const IconoChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
 const IconoMail = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
 const IconoLock = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -39,13 +38,27 @@ function App() {
   const [busquedaHistorial, setBusquedaHistorial] = useState('')
   const [filtroTipoHistorial, setFiltroTipoHistorial] = useState('TODOS')
 
+  // NUEVO: Estado para el ingreso manual completo
+  const [ingresoManual, setIngresoManual] = useState({
+    esNuevo: false,
+    id_producto: '',
+    nombre_nuevo: '',
+    categoria: '',
+    cantidad: '',
+    precio_unitario: '',
+    fecha: new Date().toISOString().split('T')[0], // Fecha hoy por defecto
+    proveedor: '',
+    recibido_por: ''
+  })
+
+  // Estado para Edición
   const [formulario, setFormulario] = useState({ nombre: '', sku: '', precio_costo: '', categoria: '' })
   const [idEditando, setIdEditando] = useState(null)
+  const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false)
 
   const [formObra, setFormObra] = useState({ nombre: '', cliente: '', presupuesto: '' })
   const [movimientoData, setMovimientoData] = useState({ id_producto: '', cantidad: '', id_obra: '' })
   
-  // NUEVO: Estado para pestaña de Ingresos (Manual vs Factura)
   const [tabIngreso, setTabIngreso] = useState('MANUAL')
   const [productosFactura, setProductosFactura] = useState([])
   const [cargandoFactura, setCargandoFactura] = useState(false)
@@ -124,24 +137,63 @@ function App() {
     } catch (e) { console.error("Error cargando datos:", e); } 
   }
 
-  const guardarMaterial = async (e) => { 
-    e.preventDefault(); 
-    if (idEditando) {
-       await fetch(`${API_URL}/productos/${idEditando}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formulario) });
-       alert("✅ Producto actualizado correctamente"); setIdEditando(null); cambiarMenu('Almacén'); 
-    } else {
-       const prefix = formulario.nombre ? formulario.nombre.substring(0, 3).toUpperCase() : 'GEN';
-       const randomNum = Math.floor(1000 + Math.random() * 9000);
-       const skuAutomatico = `${prefix}-${randomNum}`;
-       await fetch(`${API_URL}/productos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formulario, sku: skuAutomatico, precio_venta: 0, stock_actual: 0 }) }); 
-       alert(`✅ Producto creado exitosamente.\nSKU Asignado: ${skuAutomatico}`);
-    }
-    setFormulario({ nombre: '', sku: '', precio_costo: '', categoria: '' }); obtenerDatos(); 
+  // --- LÓGICA DE INGRESO MANUAL COMPLETO ---
+  const registrarIngresoCompleto = async (e) => {
+    e.preventDefault();
+    // Validaciones
+    if (ingresoManual.esNuevo && !ingresoManual.nombre_nuevo) return alert("Falta el nombre del producto nuevo");
+    if (!ingresoManual.esNuevo && !ingresoManual.id_producto) return alert("Selecciona un producto existente");
+    if (!ingresoManual.cantidad || !ingresoManual.precio_unitario) return alert("Faltan datos numéricos");
+
+    const payload = {
+        esNuevo: ingresoManual.esNuevo,
+        id_producto: ingresoManual.id_producto,
+        nombre: ingresoManual.nombre_nuevo,
+        categoria: ingresoManual.categoria,
+        cantidad: ingresoManual.cantidad,
+        precio_unitario: ingresoManual.precio_unitario,
+        fecha: ingresoManual.fecha,
+        proveedor: ingresoManual.proveedor,
+        recibido_por: ingresoManual.recibido_por
+    };
+
+    try {
+        const r = await fetch(`${API_URL}/registrar-ingreso-completo`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        const d = await r.json();
+        if(d.success) {
+            alert("✅ Ingreso registrado con éxito");
+            setIngresoManual({ ...ingresoManual, nombre_nuevo: '', cantidad: '', precio_unitario: '', proveedor: '', recibido_por: '' });
+            obtenerDatos();
+        } else {
+            alert("Error al registrar");
+        }
+    } catch (e) { alert("Error de conexión"); }
   }
 
-  const cargarProductoParaEditar = (prod) => {
-     setFormulario({ nombre: prod.nombre, sku: prod.sku, precio_costo: prod.precio_costo, categoria: prod.categoria });
-     setIdEditando(prod.id); cambiarMenu('Crear Producto'); 
+  // --- LÓGICA DE EDICIÓN (INVENTARIO) ---
+  const abrirEdicion = (prod) => {
+     setFormulario({ 
+         nombre: prod.nombre, 
+         sku: prod.sku, 
+         precio_costo: prod.precio_costo, 
+         categoria: prod.categoria 
+     });
+     setIdEditando(prod.id);
+     setMostrarModalEdicion(true);
+  }
+
+  const guardarEdicion = async (e) => { 
+    e.preventDefault(); 
+    if (!idEditando) return;
+    await fetch(`${API_URL}/productos/${idEditando}`, { 
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formulario) 
+    });
+    alert("✅ Producto actualizado");
+    setMostrarModalEdicion(false);
+    setIdEditando(null); 
+    obtenerDatos(); 
   }
   
   const guardarObra = async (e) => { 
@@ -160,96 +212,46 @@ function App() {
     alert(tipo === 'ENTRADA' ? "✅ Ingreso a bodega registrado" : "🚀 Despacho a obra registrado");
   }
 
-  // NUEVO: Función para subir y leer factura
-// NUEVO: Función mejorada para subir factura
   const procesarFactura = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-  
-  // Validar que sea PDF o Imagen
-    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
-      return alert("❌ Formato no válido. Solo se aceptan PDF, JPG o PNG.");
-    }
-
-    setCargandoFactura(true); // Activar carga
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) return alert("❌ Formato no válido.");
+    setCargandoFactura(true);
     const formData = new FormData();
     formData.append('factura', file);
-
     try {
-      console.log("📡 Enviando archivo al servidor...");
       const r = await fetch(`${API_URL}/subir-factura`, { method: 'POST', body: formData });
-    
-      console.log("📩 Respuesta recibida. Status:", r.status);
-
-      if (!r.ok) {
-        throw new Error(`Error del servidor: ${r.statusText}`);
-      }
-
+      if (!r.ok) throw new Error(`Error: ${r.statusText}`);
       const d = await r.json();
-      console.log("📦 Datos procesados:", d);
-
       if (d.success) {
-        if (d.productos.length === 0) {
-          alert("⚠️ El sistema leyó el archivo pero no encontró productos conocidos (Cámaras, Cables, etc).");
-        } else {
-          setProductosFactura(d.productos);
-          alert(`✅ ¡Éxito! Se detectaron ${d.productos.length} productos.`);
-        }
-      } else {
-        alert("❌ El servidor no pudo leer la factura.");
-      }
-
-    } catch (error) {
-      console.error("🔥 Error grave:", error);
-      alert(`Error de conexión o lectura: ${error.message}`);
-    } finally {
-    // ESTO ES CLAVE: Se ejecuta SIEMPRE, haya error o no.
-      setCargandoFactura(false); 
-    // Limpiamos el input para permitir subir el mismo archivo de nuevo si falló
-      e.target.value = null; 
-    }
+        d.productos.length === 0 ? alert("⚠️ No se detectaron productos.") : setProductosFactura(d.productos);
+      } else { alert("❌ Error leyendo factura."); }
+    } catch (error) { alert(`Error de conexión: ${error.message}`); } 
+    finally { setCargandoFactura(false); e.target.value = null; }
   }
 
-// LÓGICA REAL PARA GUARDAR EN BASE DE DATOS
   const ingresarProductosFactura = async () => {
-    if(!window.confirm(`¿Confirmas el ingreso de ${productosFactura.length} productos al inventario?\n\n(Se crearán los que no existan)`)) return;
-  
+    if(!window.confirm(`¿Confirmas el ingreso de ${productosFactura.length} productos?`)) return;
     try {
-      const r = await fetch(`${API_URL}/ingreso-masivo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productos: productosFactura })
-      });
-
+      const r = await fetch(`${API_URL}/ingreso-masivo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productos: productosFactura }) });
       const d = await r.json();
-
-      if (d.success) {
-        alert("✅ ¡Inventario actualizado! Los productos nuevos han sido creados.");
-        setProductosFactura([]);
-        setTabIngreso('MANUAL');
-        obtenerDatos(); // Recargar la tabla para ver los cambios
-      } else {
-        alert("Hubo un error al guardar los productos.");
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Error de conexión al guardar.");
-    }
+      if (d.success) { alert("✅ Inventario actualizado."); setProductosFactura([]); setTabIngreso('MANUAL'); obtenerDatos(); } else { alert("Error al guardar."); }
+    } catch (error) { alert("Error de conexión."); }
   }
 
   const eliminarProducto = async (id, nombre) => {
-    if (window.confirm(`⚠️ ADVERTENCIA ⚠️\n\n¿Estás seguro de eliminar el producto "${nombre}"?`)) {
+    if (window.confirm(`⚠️ ¿Eliminar "${nombre}"?`)) {
       try { await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' }); obtenerDatos(); } catch (e) { alert("Error al eliminar"); }
     }
   }
   const eliminarMovimiento = async (id) => {
-    if (window.confirm(`¿Seguro deseas eliminar este registro del historial?`)) {
+    if (window.confirm(`¿Eliminar registro?`)) {
       try { await fetch(`${API_URL}/movimientos/${id}`, { method: 'DELETE' }); obtenerDatos(); } catch (e) { alert("Error al eliminar"); }
     }
   }
   const eliminarObra = async (id, nombre) => {
-    if (window.confirm(`⚠️ PELIGRO ⚠️\n\n¿Estás seguro de eliminar la obra "${nombre}"?`)) {
-      try { const response = await fetch(`${API_URL}/obras/${id}`, { method: 'DELETE' }); if (!response.ok) { return alert("⛔ Error: No puedes eliminar la Bodega Central."); } obtenerDatos(); } catch (e) { alert("Error de conexión al eliminar."); }
+    if (window.confirm(`⚠️ ¿Eliminar obra "${nombre}"?`)) {
+      try { const response = await fetch(`${API_URL}/obras/${id}`, { method: 'DELETE' }); if (!response.ok) { return alert("⛔ No puedes eliminar la Bodega Central."); } obtenerDatos(); } catch (e) { alert("Error de conexión."); }
     }
   }
   
@@ -262,33 +264,23 @@ function App() {
 
   useEffect(() => { if(usuarioLogueado) obtenerDatos() }, [usuarioLogueado, menuActivo])
 
-  // ==========================================
-  // 5. RENDERIZADO DE PANTALLA
-  // ==========================================
-
   if (!usuarioLogueado) {
     return (
       <div className="min-h-screen flex bg-slate-50 font-sans">
         <div className="hidden lg:flex lg:w-1/2 bg-slate-900 flex-col justify-between p-16 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-64 h-64 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
-          <div className="absolute bottom-0 right-0 w-64 h-64 bg-cyan-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-2000"></div>
           <div className="relative z-10"><h1 className="text-white text-4xl font-bold flex items-center gap-3"><span className="text-blue-500">●</span> ObraLink</h1></div>
           <div className="relative z-10"><blockquote className="text-2xl text-slate-300 font-medium leading-relaxed">"El éxito de una obra comienza con un inventario ordenado."</blockquote><p className="mt-6 text-slate-500 text-sm tracking-widest uppercase">Sistema de Gestión Integral v3.0</p></div>
         </div>
         <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
           <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-none lg:shadow-none sm:shadow-xl">
-            <div className="text-center mb-10"><h2 className="text-3xl font-bold text-slate-800">Bienvenido</h2><p className="text-slate-500 mt-2">Ingresa tus credenciales para acceder</p></div>
+            <div className="text-center mb-10"><h2 className="text-3xl font-bold text-slate-800">Bienvenido</h2></div>
             <form onSubmit={manejarLogin} className="space-y-6">
-              <div><label className="block text-sm font-semibold text-slate-700 mb-2">Correo Electrónico</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><IconoMail /></div><input type="email" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-slate-50 focus:bg-white" value={loginData.email} onChange={e=>setLoginData({...loginData, email:e.target.value})} /></div></div>
-              <div><label className="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><IconoLock /></div><input type="password" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-slate-50 focus:bg-white" value={loginData.password} onChange={e=>setLoginData({...loginData, password:e.target.value})} /></div></div>
-              
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="recordar" className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer" checked={recordarSesion} onChange={(e) => setRecordarSesion(e.target.checked)}/>
-                <label htmlFor="recordar" className="text-sm text-slate-600 cursor-pointer">Mantener sesión iniciada</label>
-              </div>
-
-              {errorLogin && (<div className="p-3 bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg flex items-center gap-2 justify-center animate-pulse"><span>⚠️</span> {errorLogin}</div>)}
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg transition-all transform active:scale-[0.98] shadow-lg shadow-blue-500/30 text-base">INGRESAR AL SISTEMA</button>
+              <div><label className="block text-sm font-semibold text-slate-700 mb-2">Correo</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><IconoMail /></div><input type="email" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg" value={loginData.email} onChange={e=>setLoginData({...loginData, email:e.target.value})} /></div></div>
+              <div><label className="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><IconoLock /></div><input type="password" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg" value={loginData.password} onChange={e=>setLoginData({...loginData, password:e.target.value})} /></div></div>
+              <div className="flex items-center gap-2"><input type="checkbox" id="recordar" checked={recordarSesion} onChange={(e) => setRecordarSesion(e.target.checked)}/><label htmlFor="recordar" className="text-sm text-slate-600 cursor-pointer">Mantener sesión iniciada</label></div>
+              {errorLogin && (<div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex justify-center"><span>⚠️</span> {errorLogin}</div>)}
+              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg">INGRESAR AL SISTEMA</button>
             </form>
           </div>
         </div>
@@ -318,7 +310,7 @@ function App() {
           <button onClick={()=>cambiarMenu('Salidas')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Salidas' ? 'bg-red-600 text-white' : ''}`}><IconoOut/><span className="ml-3">Salidas</span></button>
 
           <p className="px-6 text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider mt-4">Gestión</p>
-          <button onClick={()=>cambiarMenu('Crear Producto')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Crear Producto' ? 'bg-slate-700 text-white' : ''}`}><IconoTag/><span className="ml-3">Crear Producto</span></button>
+          {/* ELIMINADO: BOTÓN CREAR PRODUCTO */}
           <button onClick={()=>cambiarMenu('Almacén')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Almacén' ? 'bg-slate-700 text-white' : ''}`}><IconoBox/><span className="ml-3">Almacén</span></button>
           <button onClick={()=>cambiarMenu('Obras')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Obras' ? 'bg-slate-700 text-white' : ''}`}><IconoBuilding/><span className="ml-3">Obras</span></button>
           <button onClick={()=>cambiarMenu('Historial')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Historial' ? 'bg-slate-700 text-white' : ''}`}><IconoHistory/><span className="ml-3">Historial</span></button>
@@ -336,47 +328,19 @@ function App() {
           {menuActivo === 'Inicio' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                {rolUsuario === 'ADMIN' && (
-                  <div className="bg-blue-600 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Almacén')}>
-                    <div><h3 className="text-3xl font-bold">${kpiTotalValor.toLocaleString('es-CL')}</h3><p className="text-blue-100 text-xs font-bold uppercase mt-1">Inversión Stock</p></div>
-                  </div>
-                )}
-                <div className="bg-red-500 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Almacén')}>
-                  <div><h3 className="text-3xl font-bold">{kpiStockCritico}</h3><p className="text-red-100 text-xs font-bold uppercase mt-1">Stock Crítico (!)</p></div>
-                </div>
-                <div className="bg-orange-500 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Obras')}>
-                  <div><h3 className="text-3xl font-bold">{kpiObrasActivas}</h3><p className="text-orange-100 text-xs font-bold uppercase mt-1">Obras Activas</p></div>
-                </div>
-                <div className="bg-green-600 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Ingresos')}>
-                  <div><h3 className="text-3xl font-bold">{kpiTotalItems}</h3><p className="text-green-100 text-xs font-bold uppercase mt-1">Total Ítems</p></div>
-                </div>
+                <div className="bg-blue-600 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Almacén')}><div><h3 className="text-3xl font-bold">${kpiTotalValor.toLocaleString('es-CL')}</h3><p className="text-blue-100 text-xs font-bold uppercase mt-1">Inversión Stock</p></div></div>
+                <div className="bg-red-500 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Almacén')}><div><h3 className="text-3xl font-bold">{kpiStockCritico}</h3><p className="text-red-100 text-xs font-bold uppercase mt-1">Stock Crítico (!)</p></div></div>
+                <div className="bg-orange-500 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Obras')}><div><h3 className="text-3xl font-bold">{kpiObrasActivas}</h3><p className="text-orange-100 text-xs font-bold uppercase mt-1">Obras Activas</p></div></div>
+                <div className="bg-green-600 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Ingresos')}><div><h3 className="text-3xl font-bold">{kpiTotalItems}</h3><p className="text-green-100 text-xs font-bold uppercase mt-1">Total Ítems</p></div></div>
               </div>
-
               <div>
                 <h3 className="font-bold text-slate-700 text-sm uppercase mb-3 flex items-center gap-2">Accesos Rápidos</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                     <button onClick={()=>cambiarMenu('Ingresos')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-green-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-green-100 text-green-600 p-3 rounded-full group-hover:bg-green-600 group-hover:text-white transition"><IconoIn /></div><span className="text-xs font-bold text-slate-600">Ingresos</span></button>
                     <button onClick={()=>cambiarMenu('Salidas')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-red-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-red-100 text-red-600 p-3 rounded-full group-hover:bg-red-600 group-hover:text-white transition"><IconoOut /></div><span className="text-xs font-bold text-slate-600">Salidas</span></button>
-                    <button onClick={()=>cambiarMenu('Crear Producto')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-slate-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-slate-100 text-slate-600 p-3 rounded-full group-hover:bg-slate-600 group-hover:text-white transition"><IconoTag /></div><span className="text-xs font-bold text-slate-600">Crear</span></button>
                     <button onClick={()=>cambiarMenu('Almacén')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-blue-100 text-blue-600 p-3 rounded-full group-hover:bg-blue-600 group-hover:text-white transition"><IconoBox /></div><span className="text-xs font-bold text-slate-600">Inventario</span></button>
                     <button onClick={()=>cambiarMenu('Obras')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-orange-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-orange-100 text-orange-600 p-3 rounded-full group-hover:bg-orange-600 group-hover:text-white transition"><IconoBuilding /></div><span className="text-xs font-bold text-slate-600">Obras</span></button>
                     <button onClick={()=>cambiarMenu('Historial')} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-purple-500 hover:shadow-md transition flex flex-col items-center justify-center gap-2 group"><div className="bg-purple-100 text-purple-600 p-3 rounded-full group-hover:bg-purple-600 group-hover:text-white transition"><IconoHistory /></div><span className="text-xs font-bold text-slate-600">Historial</span></button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="bg-white rounded shadow-sm border border-slate-200 p-6">
-                  <h3 className="font-bold text-slate-700 text-sm uppercase mb-4 flex items-center gap-2"><IconoChart/> Composición de Bodega</h3>
-                  <div className="space-y-4">{Object.keys(statsPorCategoria).slice(0, 5).map((cat) => { const count = statsPorCategoria[cat]; const porcentaje = Math.round((count / kpiTotalItems) * 100) || 0; return (<div key={cat}><div className="flex justify-between text-xs mb-1"><span className="font-bold text-slate-600">{cat}</span><span className="text-slate-400">{count} ítem(s) ({porcentaje}%)</span></div><div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-blue-500 h-2 rounded-full" style={{ width: `${porcentaje}%` }}></div></div></div>)})}</div>
-                </div>
-                <div className="lg:col-span-2 bg-white rounded shadow-sm border border-slate-200 p-6">
-                  <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-slate-700 text-sm uppercase flex items-center gap-2"><IconoHistory/> Actividad Reciente</h3><button onClick={()=>cambiarMenu('Historial')} className="text-xs text-blue-600 hover:underline">Ver todo</button></div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left min-w-[300px]">
-                      <thead className="text-xs text-slate-500 uppercase bg-slate-50"><tr><th className="px-3 py-2">Hora</th><th className="px-3 py-2">Producto</th><th className="px-3 py-2 text-center">Mov</th></tr></thead>
-                      <tbody className="divide-y divide-slate-100">{historial.slice(0, 5).map((mov, i) => (<tr key={i} className="hover:bg-slate-50"><td className="px-3 py-2 text-slate-400 text-xs font-mono">{new Date(mov.fecha).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'})}</td><td className="px-3 py-2 font-medium text-slate-700">{mov.nombre}</td><td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${mov.tipo==='ENTRADA'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}`}>{mov.tipo}</span></td></tr>))}</tbody>
-                    </table>
-                  </div>
                 </div>
               </div>
             </div>
@@ -385,10 +349,7 @@ function App() {
           {menuActivo === 'Ingresos' && (
              <div className="max-w-2xl mx-auto bg-white rounded shadow-lg border border-slate-200 overflow-hidden">
                 <div className="bg-green-600 p-6 text-white flex justify-between items-center">
-                   <div>
-                     <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2"><IconoIn/> Registrar Ingreso</h2>
-                     <p className="text-green-100 text-sm">Entrada de mercadería a Bodega Central</p>
-                   </div>
+                   <div><h2 className="text-xl md:text-2xl font-bold flex items-center gap-2"><IconoIn/> Registrar Ingreso</h2><p className="text-green-100 text-sm">Entrada de mercadería a Bodega</p></div>
                    <div className="flex bg-green-700 rounded-lg p-1 gap-1">
                       <button onClick={()=>setTabIngreso('MANUAL')} className={`px-3 py-1 rounded text-xs font-bold transition ${tabIngreso==='MANUAL' ? 'bg-white text-green-700' : 'text-green-200 hover:text-white'}`}>Manual</button>
                       <button onClick={()=>setTabIngreso('FACTURA')} className={`px-3 py-1 rounded text-xs font-bold transition ${tabIngreso==='FACTURA' ? 'bg-white text-green-700' : 'text-green-200 hover:text-white'}`}>Subir Factura</button>
@@ -396,9 +357,48 @@ function App() {
                 </div>
 
                 {tabIngreso === 'MANUAL' ? (
-                  <form onSubmit={(e) => registrarMovimiento(e, 'ENTRADA')} className="p-6 md:p-8 space-y-6">
-                     <div><label className="block text-sm font-bold text-slate-600 mb-2">Seleccionar Producto</label><select required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-green-500" onChange={(e) => setMovimientoData({...movimientoData, id_producto: e.target.value})}><option value="">-- Buscar en catálogo --</option>{materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (SKU: {m.sku})</option>))}</select></div>
-                     <div><label className="block text-sm font-bold text-slate-600 mb-2">Cantidad a Ingresar</label><input type="number" required min="1" className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-green-500 text-lg font-bold" value={movimientoData.cantidad} onChange={(e) => setMovimientoData({...movimientoData, cantidad: e.target.value})} /></div>
+                  <form onSubmit={registrarIngresoCompleto} className="p-6 md:p-8 space-y-4">
+                     {/* SWITCH NUEVO / EXISTENTE */}
+                     <div className="flex items-center gap-2 mb-4 bg-slate-100 p-3 rounded">
+                        <input type="checkbox" id="esNuevo" className="w-5 h-5 accent-green-600" checked={ingresoManual.esNuevo} onChange={(e) => setIngresoManual({...ingresoManual, esNuevo: e.target.checked})} />
+                        <label htmlFor="esNuevo" className="font-bold text-slate-700 cursor-pointer">¿Es un Producto Nuevo?</label>
+                     </div>
+
+                     {ingresoManual.esNuevo ? (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="text-xs font-bold text-slate-500">Nombre del Producto *</label><input required className="w-full border p-2 rounded" type="text" placeholder="Ej: Martillo" value={ingresoManual.nombre_nuevo} onChange={e=>setIngresoManual({...ingresoManual, nombre_nuevo: e.target.value})} /></div>
+                            <div><label className="text-xs font-bold text-slate-500">Categoría</label><input className="w-full border p-2 rounded" type="text" placeholder="Ej: Herramientas" value={ingresoManual.categoria} onChange={e=>setIngresoManual({...ingresoManual, categoria: e.target.value})} /></div>
+                        </div>
+                     ) : (
+                        <div>
+                            <label className="text-xs font-bold text-slate-500">Seleccionar Producto Existente *</label>
+                            <select required className="w-full border p-2 rounded bg-white" value={ingresoManual.id_producto} onChange={(e) => setIngresoManual({...ingresoManual, id_producto: e.target.value})}>
+                                <option value="">-- Buscar en catálogo --</option>
+                                {materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (SKU: {m.sku})</option>))}
+                            </select>
+                        </div>
+                     )}
+
+                     <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-xs font-bold text-slate-500">Fecha *</label><input required className="w-full border p-2 rounded" type="date" value={ingresoManual.fecha} onChange={e=>setIngresoManual({...ingresoManual, fecha: e.target.value})} /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Empresa / Proveedor</label><input className="w-full border p-2 rounded" type="text" placeholder="Ej: Sodimac" value={ingresoManual.proveedor} onChange={e=>setIngresoManual({...ingresoManual, proveedor: e.target.value})} /></div>
+                     </div>
+
+                     <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-xs font-bold text-slate-500">Cantidad *</label><input required className="w-full border p-2 rounded font-bold text-lg" type="number" min="1" placeholder="0" value={ingresoManual.cantidad} onChange={e=>setIngresoManual({...ingresoManual, cantidad: e.target.value})} /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Precio Unitario ($) *</label><input required className="w-full border p-2 rounded font-bold text-lg" type="number" min="0" placeholder="0" value={ingresoManual.precio_unitario} onChange={e=>setIngresoManual({...ingresoManual, precio_unitario: e.target.value})} /></div>
+                     </div>
+
+                     <div>
+                        <label className="text-xs font-bold text-slate-500">Recibido Por</label>
+                        <input className="w-full border p-2 rounded" type="text" placeholder="Nombre del responsable" value={ingresoManual.recibido_por} onChange={e=>setIngresoManual({...ingresoManual, recibido_por: e.target.value})} />
+                     </div>
+
+                     <div className="bg-slate-50 p-4 rounded text-right border border-slate-200">
+                        <span className="text-sm text-slate-500 font-bold block">PRECIO TOTAL ESTIMADO</span>
+                        <span className="text-2xl font-bold text-slate-800">${((ingresoManual.cantidad || 0) * (ingresoManual.precio_unitario || 0)).toLocaleString('es-CL')}</span>
+                     </div>
+
                      <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded text-lg transition shadow-lg">CONFIRMAR INGRESO</button>
                   </form>
                 ) : (
@@ -408,21 +408,16 @@ function App() {
                         <span className="text-sm font-bold">Haz clic o arrastra tu Factura (PDF/Imagen)</span>
                         <input type="file" onChange={procesarFactura} className="absolute inset-0 opacity-0 cursor-pointer" accept=".pdf,image/*" />
                      </div>
-                     
                      {cargandoFactura && <p className="text-center text-slate-500 animate-pulse">Analizando documento con IA...</p>}
-
                      {productosFactura.length > 0 && (
                         <div className="bg-slate-50 rounded border border-slate-200 p-4">
                            <h4 className="font-bold text-slate-700 text-sm mb-3">Productos Detectados ({productosFactura.length})</h4>
                            <div className="space-y-2 max-h-40 overflow-y-auto">
                               {productosFactura.map((p, i) => (
-                                 <div key={i} className="flex justify-between text-xs border-b border-slate-200 pb-1">
-                                    <span>{p.nombre}</span>
-                                    <span className="font-bold">{p.cantidad} unid.</span>
-                                 </div>
+                                 <div key={i} className="flex justify-between text-xs border-b border-slate-200 pb-1"><span>{p.nombre}</span><span className="font-bold">{p.cantidad} unid.</span></div>
                               ))}
                            </div>
-                           <button onClick={ingresarProductosFactura} className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow">INGRESAR TODO AL INVENTARIO</button>
+                           <button onClick={ingresarProductosFactura} className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow">INGRESAR TODO</button>
                         </div>
                      )}
                   </div>
@@ -442,28 +437,6 @@ function App() {
              </div>
           )}
 
-          {menuActivo === 'Crear Producto' && (
-             <div className="max-w-2xl mx-auto bg-white rounded shadow-sm border border-slate-200 h-fit">
-                <div className={`bg-white px-6 py-4 border-b border-slate-100 border-l-4 ${idEditando ? 'border-orange-500' : 'border-slate-700'}`}>
-                    <h3 className="font-bold text-slate-700 text-lg uppercase flex items-center gap-2"><IconoTag/> {idEditando ? 'Editar Producto' : 'Crear Producto'}</h3>
-                    <p className="text-xs text-slate-400 mt-1">{idEditando ? 'Modificando información existente' : 'Registra nuevos productos. SKU automático.'}</p>
-                </div>
-                <form onSubmit={guardarMaterial} className="p-6 md:p-8 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label className="text-sm font-bold text-slate-600 block mb-2">Categoría</label><input required name="categoria" value={formulario.categoria} onChange={manejarInput} type="text" className="w-full border border-slate-300 p-3 rounded bg-slate-50 outline-none focus:border-slate-500" placeholder="Ej: Herramientas" /></div>
-                  </div>
-                  <div><label className="text-sm font-bold text-slate-600 block mb-2">Nombre del Producto</label><input required name="nombre" value={formulario.nombre} onChange={manejarInput} type="text" className="w-full border border-slate-300 p-3 rounded bg-slate-50 outline-none focus:border-slate-500" placeholder="Ej: Taladro Percutor 500W" /></div>
-                  {rolUsuario === 'ADMIN' && (
-                    <div><label className="text-sm font-bold text-slate-600 block mb-2">Costo Neto Unitario ($)</label><input required name="precio_costo" value={formulario.precio_costo} onChange={manejarInput} type="number" className="w-full border border-slate-300 p-3 rounded bg-slate-50 outline-none focus:border-slate-500" placeholder="0" /></div>
-                  )}
-                  <div className="flex gap-2">
-                     {idEditando && (<button type="button" onClick={() => { setIdEditando(null); setFormulario({ nombre: '', sku: '', precio_costo: '', categoria: '' }); }} className="w-1/3 bg-slate-300 text-slate-700 font-bold py-4 rounded hover:bg-slate-400 transition">CANCELAR</button>)}
-                     <button className={`flex-1 text-white font-bold py-4 rounded shadow-md flex justify-center items-center gap-2 transition ${idEditando ? 'bg-orange-600 hover:bg-orange-700' : 'bg-slate-700 hover:bg-slate-800'}`}>{idEditando ? '💾 GUARDAR CAMBIOS' : <span>+ CREAR PRODUCTO</span>}</button>
-                  </div>
-                </form>
-             </div>
-          )}
-
           {menuActivo === 'Almacén' && (
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -471,7 +444,27 @@ function App() {
                   <div className="bg-white p-4 rounded shadow-sm border border-slate-200"><p className="text-xs font-bold text-slate-400 uppercase">Items Listados</p><p className="text-xl font-bold text-slate-700">{kpiTotalItems}</p></div>
                   <div className="bg-white p-4 rounded shadow-sm border border-slate-200"><p className="text-xs font-bold text-slate-400 uppercase">Stock Crítico</p><p className={`text-xl font-bold ${kpiStockCritico > 0 ? 'text-red-500' : 'text-green-500'}`}>{kpiStockCritico}</p></div>
                 </div>
-                <div className="bg-white rounded shadow-sm border border-slate-200 h-fit">
+                
+                <div className="bg-white rounded shadow-sm border border-slate-200 h-fit relative">
+                    {mostrarModalEdicion && (
+                        <div className="absolute inset-0 bg-white/90 z-20 flex items-center justify-center p-4 backdrop-blur-sm rounded">
+                            <div className="bg-white p-6 rounded-xl shadow-2xl border border-slate-300 w-full max-w-md">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><IconoEdit/> Editar Producto</h3>
+                                <form onSubmit={guardarEdicion} className="space-y-4">
+                                    <div><label className="text-xs font-bold text-slate-500">Nombre</label><input className="w-full border p-2 rounded" value={formulario.nombre} onChange={manejarInput} name="nombre" /></div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div><label className="text-xs font-bold text-slate-500">Categoría</label><input className="w-full border p-2 rounded" value={formulario.categoria} onChange={manejarInput} name="categoria" /></div>
+                                        {rolUsuario === 'ADMIN' && <div><label className="text-xs font-bold text-slate-500">Precio Costo</label><input className="w-full border p-2 rounded" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" /></div>}
+                                    </div>
+                                    <div className="flex gap-2 mt-4">
+                                        <button type="button" onClick={() => setMostrarModalEdicion(false)} className="w-1/2 bg-slate-200 text-slate-700 py-3 rounded font-bold">Cancelar</button>
+                                        <button className="w-1/2 bg-blue-600 text-white py-3 rounded font-bold shadow">Guardar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex flex-col md:flex-row flex-wrap justify-between items-start md:items-center border-l-4 border-slate-500 gap-2">
                       <span className="font-bold text-slate-700 text-sm uppercase">Inventario General</span>
                       <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
@@ -495,7 +488,7 @@ function App() {
                               {rolUsuario === 'ADMIN' && <td className="px-4 py-3 text-right text-slate-500">${parseInt(mat.precio_costo).toLocaleString()}</td>}
                               {rolUsuario === 'ADMIN' && <td className="px-4 py-3 text-right font-bold text-slate-700">${(mat.stock_actual * mat.precio_costo).toLocaleString()}</td>}
                               <td className="px-4 py-3 text-center flex items-center justify-center gap-2">
-                                <button onClick={() => cargarProductoParaEditar(mat)} className="text-slate-400 hover:text-blue-600 transition p-1 rounded hover:bg-blue-50" title="Editar"><IconoEdit /></button>
+                                <button onClick={() => abrirEdicion(mat)} className="text-slate-400 hover:text-blue-600 transition p-1 rounded hover:bg-blue-50" title="Editar"><IconoEdit /></button>
                                 <button onClick={() => eliminarProducto(mat.id, mat.nombre)} className="text-slate-400 hover:text-red-600 transition p-1 rounded hover:bg-red-50" title="Eliminar"><IconoTrash /></button>
                               </td>
                             </tr>
@@ -509,22 +502,15 @@ function App() {
 
           {menuActivo === 'Obras' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full content-start">
-              
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-fit overflow-hidden">
-                <div className="bg-slate-800 px-6 py-4 border-b border-slate-700">
-                  <h3 className="font-bold text-white text-lg uppercase flex items-center gap-2"><IconoBriefcase/> Gestión de Proyectos</h3>
-                  <p className="text-xs text-slate-400 mt-1">Crea centros de costos para asignar materiales.</p>
-                </div>
+                <div className="bg-slate-800 px-6 py-4 border-b border-slate-700"><h3 className="font-bold text-white text-lg uppercase flex items-center gap-2"><IconoBriefcase/> Gestión de Proyectos</h3><p className="text-xs text-slate-400 mt-1">Crea centros de costos para asignar materiales.</p></div>
                 <form onSubmit={guardarObra} className="p-6 space-y-4">
                   <div><label className="text-xs font-bold text-slate-500 block mb-1">Nombre del Proyecto</label><input required value={formObra.nombre} onChange={e=>setFormObra({...formObra, nombre: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" placeholder="Ej: Edificio Centro" /></div>
                   <div><label className="text-xs font-bold text-slate-500 block mb-1">Cliente / Encargado</label><input required value={formObra.cliente} onChange={e=>setFormObra({...formObra, cliente: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" placeholder="Ej: Constructora XYZ" /></div>
-                  {rolUsuario === 'ADMIN' && (
-                    <div><label className="text-xs font-bold text-slate-500 block mb-1">Presupuesto ($)</label><input value={formObra.presupuesto} onChange={e=>setFormObra({...formObra, presupuesto: e.target.value})} type="number" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" /></div>
-                  )}
+                  {rolUsuario === 'ADMIN' && (<div><label className="text-xs font-bold text-slate-500 block mb-1">Presupuesto ($)</label><input value={formObra.presupuesto} onChange={e=>setFormObra({...formObra, presupuesto: e.target.value})} type="number" className="w-full border border-slate-300 p-3 rounded bg-slate-50 focus:bg-white transition" /></div>)}
                   <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded shadow-md transition active:scale-95">CREAR NUEVO PROYECTO</button>
                 </form>
               </div>
-
               <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-min">
                  {obras.map(o => (
                    <div key={o.id} className={`bg-white p-5 rounded-xl shadow-sm border border-slate-200 relative group hover:shadow-md transition ${o.nombre === 'Bodega Central' ? 'border-l-4 border-l-blue-600' : 'border-l-4 border-l-orange-500'}`}>
@@ -536,22 +522,9 @@ function App() {
                         {o.nombre !== 'Bodega Central' && (<button onClick={() => eliminarObra(o.id, o.nombre)} className="text-slate-300 hover:text-red-500 transition"><IconoTrash /></button>)}
                       </div>
                       <div className="space-y-3">
-                        <div className="bg-slate-50 p-3 rounded border border-slate-100 flex justify-between items-center">
-                           <span className="text-xs font-bold text-slate-500 uppercase">Estado</span><span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-full">● En Ejecución</span>
-                        </div>
+                        <div className="bg-slate-50 p-3 rounded border border-slate-100 flex justify-between items-center"><span className="text-xs font-bold text-slate-500 uppercase">Estado</span><span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-full">● En Ejecución</span></div>
                         {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString()}</span></div>)}
-                        
-                        <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2">
-                             <span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
-                                <IconoBox/> {o.nombre === 'Bodega Central' ? 'Valor Materiales' : 'Materiales Recibidos'}
-                             </span>
-                             <span className="text-lg font-bold text-slate-800">
-                                {o.nombre === 'Bodega Central' 
-                                   ? `$${materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0).toLocaleString('es-CL')}` 
-                                   : <span>{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span> 
-                                } 
-                             </span>
-                        </div>
+                        <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2"><span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1"><IconoBox/> {o.nombre === 'Bodega Central' ? 'Valor Materiales' : 'Materiales Recibidos'}</span><span className="text-lg font-bold text-slate-800">{o.nombre === 'Bodega Central' ? `$${materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0).toLocaleString('es-CL')}` : <span>{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span>}</span></div>
                       </div>
                    </div>
                  ))}
