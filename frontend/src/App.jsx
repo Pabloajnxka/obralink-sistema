@@ -80,6 +80,10 @@ function App() {
     return coincideTexto && coincideTipo;
   })
 
+  // --- NUEVO: FILTRO PARA "LO ÚLTIMO AGREGADO" EN LA VISTA DE INGRESO ---
+  // Filtramos solo ENTRADAS y tomamos las primeras 5 (ya vienen ordenadas por fecha DESC)
+  const ultimosIngresos = historial.filter(h => h.tipo === 'ENTRADA').slice(0, 5);
+
   const obrasReales = obras.filter(o => o.nombre !== 'Bodega Central');
 
   const kpiTotalValor = materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0)
@@ -158,6 +162,7 @@ function App() {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
         const d = await r.json();
+        
         if(d.success) {
             alert("✅ Ingreso registrado con éxito");
             setIngresoManual({ ...ingresoManual, nombre_nuevo: '', cantidad: '', precio_unitario: '', proveedor: '', recibido_por: '' });
@@ -308,7 +313,6 @@ function App() {
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        .glass-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
       `}</style>
 
       <div className="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center z-50 shadow-md">
@@ -379,80 +383,117 @@ function App() {
           )}
 
           {menuActivo === 'Ingresos' && (
-             <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-8 text-white flex justify-between items-center">
-                   <div><h2 className="text-2xl font-bold flex items-center gap-3"><IconoIn/> Registrar Ingreso</h2><p className="text-emerald-100 text-sm mt-1">Entrada de mercadería a Bodega</p></div>
-                   <div className="flex bg-emerald-800/50 backdrop-blur rounded-lg p-1 gap-1">
-                      <button onClick={()=>setTabIngreso('MANUAL')} className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${tabIngreso==='MANUAL' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-100 hover:text-white'}`}>Manual</button>
-                      <button onClick={()=>setTabIngreso('FACTURA')} className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${tabIngreso==='FACTURA' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-100 hover:text-white'}`}>Subir Factura</button>
-                   </div>
-                </div>
+             <div className="max-w-3xl mx-auto space-y-6">
+                <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+                    <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-8 text-white flex justify-between items-center">
+                    <div><h2 className="text-2xl font-bold flex items-center gap-3"><IconoIn/> Registrar Ingreso</h2><p className="text-emerald-100 text-sm mt-1">Entrada de mercadería a Bodega</p></div>
+                    <div className="flex bg-emerald-800/50 backdrop-blur rounded-lg p-1 gap-1">
+                        <button onClick={()=>setTabIngreso('MANUAL')} className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${tabIngreso==='MANUAL' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-100 hover:text-white'}`}>Manual</button>
+                        <button onClick={()=>setTabIngreso('FACTURA')} className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${tabIngreso==='FACTURA' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-100 hover:text-white'}`}>Subir Factura</button>
+                    </div>
+                    </div>
 
-                {tabIngreso === 'MANUAL' ? (
-                  <form onSubmit={registrarIngresoCompleto} className="p-8 space-y-6">
-                     <div className="flex items-center gap-3 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <input type="checkbox" id="esNuevo" className="w-5 h-5 accent-emerald-600 rounded" checked={ingresoManual.esNuevo} onChange={(e) => setIngresoManual({...ingresoManual, esNuevo: e.target.checked})} />
-                        <label htmlFor="esNuevo" className="font-bold text-slate-700 cursor-pointer select-none">¿Es un Producto Nuevo?</label>
-                     </div>
-                     {ingresoManual.esNuevo ? (
-                        <div className="grid grid-cols-2 gap-6">
-                            <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Nombre del Producto *</label><input required className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition" type="text" placeholder="Ej: Martillo" value={ingresoManual.nombre_nuevo} onChange={e=>setIngresoManual({...ingresoManual, nombre_nuevo: e.target.value})} /></div>
+                    {tabIngreso === 'MANUAL' ? (
+                    <form onSubmit={registrarIngresoCompleto} className="p-8 space-y-6">
+                        <div className="flex items-center gap-3 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <input type="checkbox" id="esNuevo" className="w-5 h-5 accent-emerald-600 rounded" checked={ingresoManual.esNuevo} onChange={(e) => setIngresoManual({...ingresoManual, esNuevo: e.target.checked})} />
+                            <label htmlFor="esNuevo" className="font-bold text-slate-700 cursor-pointer select-none">¿Es un Producto Nuevo?</label>
+                        </div>
+                        {ingresoManual.esNuevo ? (
+                            <div className="grid grid-cols-2 gap-6">
+                                <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Nombre del Producto *</label><input required className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition" type="text" placeholder="Ej: Martillo" value={ingresoManual.nombre_nuevo} onChange={e=>setIngresoManual({...ingresoManual, nombre_nuevo: e.target.value})} /></div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Categoría</label>
+                                    <input className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition" type="text" placeholder="Ej: Herramientas" list="lista-categorias" value={ingresoManual.categoria} onChange={e=>setIngresoManual({...ingresoManual, categoria: e.target.value})} />
+                                </div>
+                            </div>
+                        ) : (
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Categoría</label>
-                                <input className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition" type="text" placeholder="Ej: Herramientas" list="lista-categorias" value={ingresoManual.categoria} onChange={e=>setIngresoManual({...ingresoManual, categoria: e.target.value})} />
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Seleccionar Producto Existente *</label>
+                                <select required className="w-full border border-slate-300 p-3 rounded-xl bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition" value={ingresoManual.id_producto} onChange={(e) => setIngresoManual({...ingresoManual, id_producto: e.target.value})}>
+                                    <option value="">-- Buscar en catálogo --</option>
+                                    {materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (SKU: {m.sku})</option>))}
+                                </select>
+                            </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-6">
+                            <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Fecha Real del Ingreso *</label><input required className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition" type="date" value={ingresoManual.fecha} onChange={e=>setIngresoManual({...ingresoManual, fecha: e.target.value})} /></div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Empresa / Proveedor</label>
+                                <input className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition" type="text" placeholder="Ej: Sodimac" list="lista-proveedores" value={ingresoManual.proveedor} onChange={e=>setIngresoManual({...ingresoManual, proveedor: e.target.value})} />
                             </div>
                         </div>
-                     ) : (
+                        <div className="grid grid-cols-2 gap-6">
+                            <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Cantidad *</label><input required className="w-full border border-slate-300 p-3 rounded-xl font-bold text-lg text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none transition" type="number" min="1" placeholder="0" value={ingresoManual.cantidad} onChange={e=>setIngresoManual({...ingresoManual, cantidad: e.target.value})} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Precio Unitario ($) *</label><input required className="w-full border border-slate-300 p-3 rounded-xl font-bold text-lg text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none transition" type="number" min="0" placeholder="0" value={ingresoManual.precio_unitario} onChange={e=>setIngresoManual({...ingresoManual, precio_unitario: e.target.value})} /></div>
+                        </div>
                         <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Seleccionar Producto Existente *</label>
-                            <select required className="w-full border border-slate-300 p-3 rounded-xl bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition" value={ingresoManual.id_producto} onChange={(e) => setIngresoManual({...ingresoManual, id_producto: e.target.value})}>
-                                <option value="">-- Buscar en catálogo --</option>
-                                {materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (SKU: {m.sku})</option>))}
-                            </select>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Recibido Por (En Bodega)</label>
+                            <input className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition" type="text" placeholder="Nombre del responsable" value={ingresoManual.recibido_por} onChange={e=>setIngresoManual({...ingresoManual, recibido_por: e.target.value})} />
                         </div>
-                     )}
-                     <div className="grid grid-cols-2 gap-6">
-                        <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Fecha Real del Ingreso *</label><input required className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition" type="date" value={ingresoManual.fecha} onChange={e=>setIngresoManual({...ingresoManual, fecha: e.target.value})} /></div>
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Empresa / Proveedor</label>
-                            <input className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition" type="text" placeholder="Ej: Sodimac" list="lista-proveedores" value={ingresoManual.proveedor} onChange={e=>setIngresoManual({...ingresoManual, proveedor: e.target.value})} />
+                        <div className="bg-slate-50 p-6 rounded-xl text-right border border-slate-100">
+                            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-1">Costo Total Estimado</span>
+                            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">${((ingresoManual.cantidad || 0) * (ingresoManual.precio_unitario || 0)).toLocaleString('es-CL')}</span>
                         </div>
-                     </div>
-                     <div className="grid grid-cols-2 gap-6">
-                        <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Cantidad *</label><input required className="w-full border border-slate-300 p-3 rounded-xl font-bold text-lg text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none transition" type="number" min="1" placeholder="0" value={ingresoManual.cantidad} onChange={e=>setIngresoManual({...ingresoManual, cantidad: e.target.value})} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Precio Unitario ($) *</label><input required className="w-full border border-slate-300 p-3 rounded-xl font-bold text-lg text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none transition" type="number" min="0" placeholder="0" value={ingresoManual.precio_unitario} onChange={e=>setIngresoManual({...ingresoManual, precio_unitario: e.target.value})} /></div>
-                     </div>
-                     <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Recibido Por (En Bodega)</label>
-                        <input className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition" type="text" placeholder="Nombre del responsable" value={ingresoManual.recibido_por} onChange={e=>setIngresoManual({...ingresoManual, recibido_por: e.target.value})} />
-                     </div>
-                     <div className="bg-slate-50 p-6 rounded-xl text-right border border-slate-100">
-                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-1">Costo Total Estimado</span>
-                        <span className="text-3xl font-extrabold text-slate-800 tracking-tight">${((ingresoManual.cantidad || 0) * (ingresoManual.precio_unitario || 0)).toLocaleString('es-CL')}</span>
-                     </div>
-                     <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">CONFIRMAR INGRESO</button>
-                  </form>
-                ) : (
-                  <div className="p-8 space-y-6">
-                     <div className="border-2 border-dashed border-slate-300 rounded-2xl p-12 flex flex-col items-center justify-center text-slate-400 gap-4 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all cursor-pointer relative group">
-                        <div className="bg-slate-100 p-4 rounded-full group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-colors"><IconoUpload /></div>
-                        <span className="text-sm font-bold">Haz clic o arrastra tu Factura (PDF/Imagen)</span>
-                        <input type="file" onChange={procesarFactura} className="absolute inset-0 opacity-0 cursor-pointer" accept=".pdf,image/*" />
-                     </div>
-                     {cargandoFactura && <div className="text-center py-4"><p className="text-emerald-600 font-bold animate-pulse">Analizando documento con IA...</p></div>}
-                     {productosFactura.length > 0 && (
-                        <div className="bg-slate-50 rounded-xl border border-slate-200 p-6">
-                           <h4 className="font-bold text-slate-700 text-sm mb-4 uppercase tracking-wide">Productos Detectados ({productosFactura.length})</h4>
-                           <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                              {productosFactura.map((p, i) => (
-                                 <div key={i} className="flex justify-between text-sm bg-white p-3 rounded border border-slate-100 shadow-sm"><span className="font-medium text-slate-700">{p.nombre}</span><span className="font-bold text-emerald-600">{p.cantidad} unid.</span></div>
-                              ))}
-                           </div>
-                           <button onClick={ingresarProductosFactura} className="w-full mt-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all hover:scale-[1.02]">INGRESAR TODO</button>
+                        <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">CONFIRMAR INGRESO</button>
+                    </form>
+                    ) : (
+                    <div className="p-8 space-y-6">
+                        <div className="border-2 border-dashed border-slate-300 rounded-2xl p-12 flex flex-col items-center justify-center text-slate-400 gap-4 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all cursor-pointer relative group">
+                            <div className="bg-slate-100 p-4 rounded-full group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-colors"><IconoUpload /></div>
+                            <span className="text-sm font-bold">Haz clic o arrastra tu Factura (PDF/Imagen)</span>
+                            <input type="file" onChange={procesarFactura} className="absolute inset-0 opacity-0 cursor-pointer" accept=".pdf,image/*" />
                         </div>
-                     )}
-                  </div>
-                )}
+                        {cargandoFactura && <div className="text-center py-4"><p className="text-emerald-600 font-bold animate-pulse">Analizando documento con IA...</p></div>}
+                        {productosFactura.length > 0 && (
+                            <div className="bg-slate-50 rounded-xl border border-slate-200 p-6">
+                            <h4 className="font-bold text-slate-700 text-sm mb-4 uppercase tracking-wide">Productos Detectados ({productosFactura.length})</h4>
+                            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                {productosFactura.map((p, i) => (
+                                    <div key={i} className="flex justify-between text-sm bg-white p-3 rounded border border-slate-100 shadow-sm"><span className="font-medium text-slate-700">{p.nombre}</span><span className="font-bold text-emerald-600">{p.cantidad} unid.</span></div>
+                                ))}
+                            </div>
+                            <button onClick={ingresarProductosFactura} className="w-full mt-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all hover:scale-[1.02]">INGRESAR TODO</button>
+                            </div>
+                        )}
+                    </div>
+                    )}
+                </div>
+
+                {/* === NUEVA SECCIÓN: LO ÚLTIMO AGREGADO (VISIBLE SIEMPRE) === */}
+                <div className="bg-slate-50 border-t border-slate-200 pt-6">
+                    <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 pl-2 flex items-center gap-2">
+                        <IconoHistory className="w-4 h-4"/> Últimos Ingresos Registrados
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
+                        {ultimosIngresos.length > 0 ? (
+                            ultimosIngresos.map((mov, i) => (
+                                <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center animate-fade-in hover:shadow-md transition-shadow">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-emerald-100 text-emerald-600 w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs">
+                                            {i + 1}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-slate-700 text-sm">{mov.nombre}</p>
+                                            <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
+                                                {/* Mostramos la hora exacta de carga para referencia del trabajador */}
+                                                Cargado a las: {new Date(mov.fecha_registro).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • SKU: {mov.sku}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="block font-bold text-emerald-600 text-sm">+{mov.cantidad} unid.</span>
+                                        <span className="text-[9px] text-slate-400 uppercase font-bold bg-slate-100 px-2 py-0.5 rounded">{mov.proveedor || 'Sin Prov.'}</span>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-6 text-slate-400 text-sm italic bg-white rounded-xl border border-dashed border-slate-300">
+                                No has ingresado nada recientemente.
+                            </div>
+                        )}
+                    </div>
+                </div>
              </div>
           )}
 
@@ -489,23 +530,36 @@ function App() {
                 </div>
                 
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 h-fit relative">
+                    {/* MODAL DE EDICIÓN MEJORADO */}
                     {mostrarModalEdicion && (
-                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
                             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
                                 <h3 className="font-bold text-xl mb-6 flex items-center gap-3 text-slate-800 border-b pb-4"><IconoEdit/> Editar Producto</h3>
                                 <form onSubmit={guardarEdicion} className="space-y-5">
                                     <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Nombre del Producto</label><input className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formulario.nombre} onChange={manejarInput} name="nombre" /></div>
                                     <div className="grid grid-cols-2 gap-5">
                                         <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">SKU</label><input className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50" value={formulario.sku} onChange={manejarInput} name="sku" /></div>
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Categoría</label><input className="w-full border border-slate-300 p-3 rounded-xl" value={formulario.categoria} onChange={manejarInput} name="categoria" list="lista-categorias" /></div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Categoría</label>
+                                            <input className="w-full border border-slate-300 p-3 rounded-xl" value={formulario.categoria} onChange={manejarInput} name="categoria" list="lista-categorias" />
+                                        </div>
                                     </div>
+                                    
                                     {rolUsuario === 'ADMIN' && (
-                                       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100"><label className="text-xs font-bold text-blue-600 block mb-1 uppercase tracking-wide">Precio Costo Unitario ($)</label><input className="w-full border border-blue-200 p-3 rounded-xl font-bold text-lg bg-white" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" /></div>
+                                       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                          <label className="text-xs font-bold text-blue-600 block mb-1 uppercase tracking-wide">Precio Costo Unitario ($)</label>
+                                          <input className="w-full border border-blue-200 p-3 rounded-xl font-bold text-lg bg-white" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" />
+                                       </div>
                                     )}
+
                                     <div className="grid grid-cols-2 gap-5 pt-2">
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Proveedor (Último)</label><input className="w-full border border-slate-300 p-3 rounded-xl" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" list="lista-proveedores" /></div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Proveedor (Último)</label>
+                                            <input className="w-full border border-slate-300 p-3 rounded-xl" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" list="lista-proveedores" />
+                                        </div>
                                         <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Recibido Por</label><input className="w-full border border-slate-300 p-3 rounded-xl" placeholder="Nombre" value={formulario.recibido_por} onChange={manejarInput} name="recibido_por" /></div>
                                     </div>
+
                                     <div className="flex gap-3 mt-8">
                                         <button type="button" onClick={() => setMostrarModalEdicion(false)} className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3.5 rounded-xl font-bold transition">Cancelar</button>
                                         <button className="w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-200 transition">Guardar Cambios</button>
