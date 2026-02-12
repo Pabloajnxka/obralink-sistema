@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 
-// ==========================================
-// 1. ÍCONOS SVG
-// ==========================================
+// ... (Tus íconos siguen igual, no los borres)
+// (Asegúrate de copiar los íconos del código anterior si no los tienes a mano)
 const IconoHome = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
 const IconoBox = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/></svg>
 const IconoHistory = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
 const IconoBuilding = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="22"/><line x1="15" y1="22" x2="15" y2="22"/><line x1="12" y1="22" x2="12" y2="22"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
 const IconoIn = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
 const IconoOut = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+const IconoTag = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
 const IconoChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
 const IconoMail = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
 const IconoLock = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -38,7 +38,7 @@ function App() {
   const [busquedaHistorial, setBusquedaHistorial] = useState('')
   const [filtroTipoHistorial, setFiltroTipoHistorial] = useState('TODOS')
 
-  // NUEVO: Estado para el ingreso manual completo
+  // Estado para el ingreso manual completo
   const [ingresoManual, setIngresoManual] = useState({
     esNuevo: false,
     id_producto: '',
@@ -46,13 +46,16 @@ function App() {
     categoria: '',
     cantidad: '',
     precio_unitario: '',
-    fecha: new Date().toISOString().split('T')[0], // Fecha hoy por defecto
+    fecha: new Date().toISOString().split('T')[0],
     proveedor: '',
     recibido_por: ''
   })
 
-  // Estado para Edición
-  const [formulario, setFormulario] = useState({ nombre: '', sku: '', precio_costo: '', categoria: '' })
+  // Estado para Edición (Modificado para soportar más datos)
+  const [formulario, setFormulario] = useState({ 
+    nombre: '', sku: '', precio_costo: '', categoria: '',
+    proveedor: '', recibido_por: '', fecha_ultima_compra: '' 
+  })
   const [idEditando, setIdEditando] = useState(null)
   const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false)
 
@@ -113,9 +116,7 @@ function App() {
           localStorage.setItem('usuario_obralink', d.nombre);
           localStorage.setItem('rol_obralink', d.rol);
         }
-      } else { 
-        setErrorLogin('Acceso denegado'); 
-      }
+      } else { setErrorLogin('Acceso denegado'); }
     } catch { setErrorLogin('Sin conexión con el servidor'); } 
   }
 
@@ -137,25 +138,13 @@ function App() {
     } catch (e) { console.error("Error cargando datos:", e); } 
   }
 
-  // --- LÓGICA DE INGRESO MANUAL COMPLETO ---
   const registrarIngresoCompleto = async (e) => {
     e.preventDefault();
-    // Validaciones
     if (ingresoManual.esNuevo && !ingresoManual.nombre_nuevo) return alert("Falta el nombre del producto nuevo");
     if (!ingresoManual.esNuevo && !ingresoManual.id_producto) return alert("Selecciona un producto existente");
     if (!ingresoManual.cantidad || !ingresoManual.precio_unitario) return alert("Faltan datos numéricos");
 
-    const payload = {
-        esNuevo: ingresoManual.esNuevo,
-        id_producto: ingresoManual.id_producto,
-        nombre: ingresoManual.nombre_nuevo,
-        categoria: ingresoManual.categoria,
-        cantidad: ingresoManual.cantidad,
-        precio_unitario: ingresoManual.precio_unitario,
-        fecha: ingresoManual.fecha,
-        proveedor: ingresoManual.proveedor,
-        recibido_por: ingresoManual.recibido_por
-    };
+    const payload = { ...ingresoManual };
 
     try {
         const r = await fetch(`${API_URL}/registrar-ingreso-completo`, {
@@ -166,19 +155,20 @@ function App() {
             alert("✅ Ingreso registrado con éxito");
             setIngresoManual({ ...ingresoManual, nombre_nuevo: '', cantidad: '', precio_unitario: '', proveedor: '', recibido_por: '' });
             obtenerDatos();
-        } else {
-            alert("Error al registrar");
-        }
+        } else { alert("Error al registrar"); }
     } catch (e) { alert("Error de conexión"); }
   }
 
-  // --- LÓGICA DE EDICIÓN (INVENTARIO) ---
+  // --- LOGICA EDICIÓN ACTUALIZADA ---
   const abrirEdicion = (prod) => {
      setFormulario({ 
          nombre: prod.nombre, 
          sku: prod.sku, 
          precio_costo: prod.precio_costo, 
-         categoria: prod.categoria 
+         categoria: prod.categoria,
+         // Campos extra opcionales para edición rápida
+         proveedor: '', 
+         recibido_por: ''
      });
      setIdEditando(prod.id);
      setMostrarModalEdicion(true);
@@ -215,7 +205,6 @@ function App() {
   const procesarFactura = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) return alert("❌ Formato no válido.");
     setCargandoFactura(true);
     const formData = new FormData();
     formData.append('factura', file);
@@ -224,7 +213,7 @@ function App() {
       if (!r.ok) throw new Error(`Error: ${r.statusText}`);
       const d = await r.json();
       if (d.success) {
-        d.productos.length === 0 ? alert("⚠️ No se detectaron productos.") : setProductosFactura(d.productos);
+        d.productos.length === 0 ? alert("⚠️ No se detectaron productos. El formato PDF es difícil de leer.") : setProductosFactura(d.productos);
       } else { alert("❌ Error leyendo factura."); }
     } catch (error) { alert(`Error de conexión: ${error.message}`); } 
     finally { setCargandoFactura(false); e.target.value = null; }
@@ -257,36 +246,11 @@ function App() {
   
   const manejarInput = (e) => setFormulario({ ...formulario, [e.target.name]: e.target.value })
   const cambiarMenu = (nuevoMenu) => { setMenuActivo(nuevoMenu); setMenuMovilAbierto(false); }
-
-  const calcularMaterialesEnObra = (obraId) => {
-    return historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, item) => acc + parseInt(item.cantidad), 0);
-  }
+  const calcularMaterialesEnObra = (obraId) => historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, item) => acc + parseInt(item.cantidad), 0);
 
   useEffect(() => { if(usuarioLogueado) obtenerDatos() }, [usuarioLogueado, menuActivo])
 
-  if (!usuarioLogueado) {
-    return (
-      <div className="min-h-screen flex bg-slate-50 font-sans">
-        <div className="hidden lg:flex lg:w-1/2 bg-slate-900 flex-col justify-between p-16 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-64 h-64 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
-          <div className="relative z-10"><h1 className="text-white text-4xl font-bold flex items-center gap-3"><span className="text-blue-500">●</span> ObraLink</h1></div>
-          <div className="relative z-10"><blockquote className="text-2xl text-slate-300 font-medium leading-relaxed">"El éxito de una obra comienza con un inventario ordenado."</blockquote><p className="mt-6 text-slate-500 text-sm tracking-widest uppercase">Sistema de Gestión Integral v3.0</p></div>
-        </div>
-        <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-          <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-none lg:shadow-none sm:shadow-xl">
-            <div className="text-center mb-10"><h2 className="text-3xl font-bold text-slate-800">Bienvenido</h2></div>
-            <form onSubmit={manejarLogin} className="space-y-6">
-              <div><label className="block text-sm font-semibold text-slate-700 mb-2">Correo</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><IconoMail /></div><input type="email" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg" value={loginData.email} onChange={e=>setLoginData({...loginData, email:e.target.value})} /></div></div>
-              <div><label className="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><IconoLock /></div><input type="password" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg" value={loginData.password} onChange={e=>setLoginData({...loginData, password:e.target.value})} /></div></div>
-              <div className="flex items-center gap-2"><input type="checkbox" id="recordar" checked={recordarSesion} onChange={(e) => setRecordarSesion(e.target.checked)}/><label htmlFor="recordar" className="text-sm text-slate-600 cursor-pointer">Mantener sesión iniciada</label></div>
-              {errorLogin && (<div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex justify-center"><span>⚠️</span> {errorLogin}</div>)}
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg">INGRESAR AL SISTEMA</button>
-            </form>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (!usuarioLogueado) return ( <div className="min-h-screen flex bg-slate-50 font-sans"><div className="hidden lg:flex lg:w-1/2 bg-slate-900 flex-col justify-between p-16 relative overflow-hidden"><div className="absolute top-0 left-0 w-64 h-64 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div><div className="relative z-10"><h1 className="text-white text-4xl font-bold flex items-center gap-3"><span className="text-blue-500">●</span> ObraLink</h1></div><div className="relative z-10"><blockquote className="text-2xl text-slate-300 font-medium leading-relaxed">"El éxito de una obra comienza con un inventario ordenado."</blockquote><p className="mt-6 text-slate-500 text-sm tracking-widest uppercase">Sistema de Gestión Integral v3.0</p></div></div><div className="w-full lg:w-1/2 flex items-center justify-center p-8"><div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-none lg:shadow-none sm:shadow-xl"><div className="text-center mb-10"><h2 className="text-3xl font-bold text-slate-800">Bienvenido</h2></div><form onSubmit={manejarLogin} className="space-y-6"><div><label className="block text-sm font-semibold text-slate-700 mb-2">Correo</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><IconoMail /></div><input type="email" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg" value={loginData.email} onChange={e=>setLoginData({...loginData, email:e.target.value})} /></div></div><div><label className="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><IconoLock /></div><input type="password" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg" value={loginData.password} onChange={e=>setLoginData({...loginData, password:e.target.value})} /></div></div><div className="flex items-center gap-2"><input type="checkbox" id="recordar" checked={recordarSesion} onChange={(e) => setRecordarSesion(e.target.checked)}/><label htmlFor="recordar" className="text-sm text-slate-600 cursor-pointer">Mantener sesión iniciada</label></div>{errorLogin && (<div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex justify-center"><span>⚠️</span> {errorLogin}</div>)}<button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg">INGRESAR AL SISTEMA</button></form></div></div></div> )
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans text-slate-700 relative">
@@ -310,7 +274,6 @@ function App() {
           <button onClick={()=>cambiarMenu('Salidas')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Salidas' ? 'bg-red-600 text-white' : ''}`}><IconoOut/><span className="ml-3">Salidas</span></button>
 
           <p className="px-6 text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider mt-4">Gestión</p>
-          {/* ELIMINADO: BOTÓN CREAR PRODUCTO */}
           <button onClick={()=>cambiarMenu('Almacén')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Almacén' ? 'bg-slate-700 text-white' : ''}`}><IconoBox/><span className="ml-3">Almacén</span></button>
           <button onClick={()=>cambiarMenu('Obras')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Obras' ? 'bg-slate-700 text-white' : ''}`}><IconoBuilding/><span className="ml-3">Obras</span></button>
           <button onClick={()=>cambiarMenu('Historial')} className={`w-full flex items-center px-6 py-3 hover:bg-slate-700 hover:text-white transition ${menuActivo === 'Historial' ? 'bg-slate-700 text-white' : ''}`}><IconoHistory/><span className="ml-3">Historial</span></button>
@@ -446,19 +409,33 @@ function App() {
                 </div>
                 
                 <div className="bg-white rounded shadow-sm border border-slate-200 h-fit relative">
+                    {/* MODAL DE EDICIÓN MEJORADO */}
                     {mostrarModalEdicion && (
-                        <div className="absolute inset-0 bg-white/90 z-20 flex items-center justify-center p-4 backdrop-blur-sm rounded">
-                            <div className="bg-white p-6 rounded-xl shadow-2xl border border-slate-300 w-full max-w-md">
-                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><IconoEdit/> Editar Producto</h3>
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <div className="bg-white p-6 rounded-xl shadow-2xl border border-slate-300 w-full max-w-lg overflow-y-auto max-h-[90vh]">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-slate-800"><IconoEdit/> Editar Producto</h3>
                                 <form onSubmit={guardarEdicion} className="space-y-4">
-                                    <div><label className="text-xs font-bold text-slate-500">Nombre</label><input className="w-full border p-2 rounded" value={formulario.nombre} onChange={manejarInput} name="nombre" /></div>
+                                    <div><label className="text-xs font-bold text-slate-500">Nombre del Producto</label><input className="w-full border p-2 rounded" value={formulario.nombre} onChange={manejarInput} name="nombre" /></div>
                                     <div className="grid grid-cols-2 gap-4">
+                                        <div><label className="text-xs font-bold text-slate-500">SKU</label><input className="w-full border p-2 rounded bg-slate-50" value={formulario.sku} onChange={manejarInput} name="sku" /></div>
                                         <div><label className="text-xs font-bold text-slate-500">Categoría</label><input className="w-full border p-2 rounded" value={formulario.categoria} onChange={manejarInput} name="categoria" /></div>
-                                        {rolUsuario === 'ADMIN' && <div><label className="text-xs font-bold text-slate-500">Precio Costo</label><input className="w-full border p-2 rounded" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" /></div>}
                                     </div>
-                                    <div className="flex gap-2 mt-4">
-                                        <button type="button" onClick={() => setMostrarModalEdicion(false)} className="w-1/2 bg-slate-200 text-slate-700 py-3 rounded font-bold">Cancelar</button>
-                                        <button className="w-1/2 bg-blue-600 text-white py-3 rounded font-bold shadow">Guardar</button>
+                                    
+                                    {rolUsuario === 'ADMIN' && (
+                                       <div className="bg-blue-50 p-3 rounded border border-blue-100">
+                                          <label className="text-xs font-bold text-blue-600 block mb-1">Precio Costo Unitario ($)</label>
+                                          <input className="w-full border border-blue-200 p-2 rounded font-bold text-lg" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" />
+                                       </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                                        <div><label className="text-xs font-bold text-slate-500">Proveedor (Último)</label><input className="w-full border p-2 rounded" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" /></div>
+                                        <div><label className="text-xs font-bold text-slate-500">Recibido Por</label><input className="w-full border p-2 rounded" placeholder="Nombre" value={formulario.recibido_por} onChange={manejarInput} name="recibido_por" /></div>
+                                    </div>
+
+                                    <div className="flex gap-2 mt-6">
+                                        <button type="button" onClick={() => setMostrarModalEdicion(false)} className="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded font-bold transition">Cancelar</button>
+                                        <button className="w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded font-bold shadow transition">Guardar Cambios</button>
                                     </div>
                                 </form>
                             </div>
