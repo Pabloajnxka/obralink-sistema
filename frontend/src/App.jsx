@@ -80,16 +80,17 @@ function App() {
     return coincideTexto && coincideTipo;
   })
 
-  // --- MODIFICADO: ORDEN CRONOLÓGICO PARA INGRESO ---
-  // 1. Filtramos solo ENTRADAS.
-  // 2. Tomamos las últimas 10 (slice 0,10 del historial que viene DESC).
-  // 3. Invertimos el orden (.reverse()) para que se muestre:
-  //    Arriba: El más antiguo de esos 10.
-  //    Abajo: El que acabas de ingresar (el más nuevo).
+  // --- LOGICA DE ÚLTIMOS MOVIMIENTOS (MEMORIA CORTO PLAZO) ---
+  
+  // 1. ÚLTIMOS INGRESOS (Más reciente primero)
   const ultimosIngresos = historial
     .filter(h => h.tipo === 'ENTRADA')
-    .slice(0, 10)
-    .reverse();
+    .slice(0, 5); // Tomamos los 5 primeros (el historial ya viene ordenado por fecha DESC del backend)
+
+  // 2. ÚLTIMAS SALIDAS (Más reciente primero)
+  const ultimasSalidas = historial
+    .filter(h => h.tipo === 'SALIDA')
+    .slice(0, 5);
 
   const obrasReales = obras.filter(o => o.nombre !== 'Bodega Central');
 
@@ -471,7 +472,7 @@ function App() {
                 {/* === NUEVA SECCIÓN: LO ÚLTIMO AGREGADO (VISIBLE SIEMPRE) === */}
                 <div className="bg-slate-50 border-t border-slate-200 pt-6">
                     <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 pl-2 flex items-center gap-2">
-                        <IconoHistory className="w-4 h-4"/> Últimos Ingresos (Orden Cronológico)
+                        <IconoHistory className="w-4 h-4"/> Últimos Ingresos Registrados
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
                         {ultimosIngresos.length > 0 ? (
@@ -479,7 +480,6 @@ function App() {
                                 <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center animate-fade-in hover:shadow-md transition-shadow">
                                     <div className="flex items-center gap-4">
                                         <div className="bg-emerald-100 text-emerald-600 w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs">
-                                            {/* Contador visual simple 1, 2, 3... */}
                                             {i + 1}
                                         </div>
                                         <div>
@@ -506,26 +506,62 @@ function App() {
           )}
 
           {menuActivo === 'Salidas' && (
-             <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-rose-600 to-pink-600 p-8 text-white"><h2 className="text-2xl font-bold flex items-center gap-3"><IconoOut/> Registrar Salida</h2><p className="text-rose-100 text-sm mt-1">Despacho de materiales hacia Obra</p></div>
-                <form onSubmit={(e) => registrarMovimiento(e, 'SALIDA')} className="p-8 space-y-6">
-                   <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Destino (Obra)</label>
-                        <select required className="w-full border border-slate-300 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500 transition" value={movimientoData.id_obra} onChange={(e) => setMovimientoData({...movimientoData, id_obra: e.target.value})}>
-                            <option value="">-- Seleccionar Obra --</option>
-                            {obrasReales.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}
-                        </select>
-                   </div>
-                   <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Seleccionar Producto</label><select required className="w-full border border-slate-300 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500 transition" onChange={(e) => setMovimientoData({...movimientoData, id_producto: e.target.value})}><option value="">-- Buscar en catálogo --</option>{materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (Disp: {m.stock_actual})</option>))}</select></div>
-                   <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Cantidad a Despachar</label><input type="number" required min="1" className="w-full border border-slate-300 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500 text-lg font-bold" value={movimientoData.cantidad} onChange={(e) => setMovimientoData({...movimientoData, cantidad: e.target.value})} /></div>
-                   
-                   <div className="grid grid-cols-2 gap-6">
-                      <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Fecha del Despacho</label><input type="date" required className="w-full border border-slate-300 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500" value={movimientoData.fecha} onChange={(e) => setMovimientoData({...movimientoData, fecha: e.target.value})} /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Responsable / Quién Retira</label><input type="text" required className="w-full border border-slate-300 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500" placeholder="Nombre..." value={movimientoData.recibido_por} onChange={(e) => setMovimientoData({...movimientoData, recibido_por: e.target.value})} /></div>
-                   </div>
+             <div className="max-w-3xl mx-auto space-y-6">
+                <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+                    <div className="bg-gradient-to-r from-rose-600 to-pink-600 p-8 text-white"><h2 className="text-2xl font-bold flex items-center gap-3"><IconoOut/> Registrar Salida</h2><p className="text-rose-100 text-sm mt-1">Despacho de materiales hacia Obra</p></div>
+                    <form onSubmit={(e) => registrarMovimiento(e, 'SALIDA')} className="p-8 space-y-6">
+                        <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Destino (Obra)</label>
+                                <select required className="w-full border border-slate-300 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500 transition" value={movimientoData.id_obra} onChange={(e) => setMovimientoData({...movimientoData, id_obra: e.target.value})}>
+                                    <option value="">-- Seleccionar Obra --</option>
+                                    {obrasReales.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}
+                                </select>
+                        </div>
+                        <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Seleccionar Producto</label><select required className="w-full border border-slate-300 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500 transition" onChange={(e) => setMovimientoData({...movimientoData, id_producto: e.target.value})}><option value="">-- Buscar en catálogo --</option>{materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (Disp: {m.stock_actual})</option>))}</select></div>
+                        <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Cantidad a Despachar</label><input type="number" required min="1" className="w-full border border-slate-300 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500 text-lg font-bold" value={movimientoData.cantidad} onChange={(e) => setMovimientoData({...movimientoData, cantidad: e.target.value})} /></div>
+                        
+                        <div className="grid grid-cols-2 gap-6">
+                            <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Fecha del Despacho</label><input type="date" required className="w-full border border-slate-300 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500" value={movimientoData.fecha} onChange={(e) => setMovimientoData({...movimientoData, fecha: e.target.value})} /></div>
+                            <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Responsable / Quién Retira</label><input type="text" required className="w-full border border-slate-300 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500" placeholder="Nombre..." value={movimientoData.recibido_por} onChange={(e) => setMovimientoData({...movimientoData, recibido_por: e.target.value})} /></div>
+                        </div>
 
-                   <button className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-4 rounded-xl text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">CONFIRMAR SALIDA</button>
-                </form>
+                        <button className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-4 rounded-xl text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">CONFIRMAR SALIDA</button>
+                    </form>
+                </div>
+
+                {/* === NUEVA SECCIÓN: ÚLTIMAS SALIDAS (VISIBLE SIEMPRE) === */}
+                <div className="bg-slate-50 border-t border-slate-200 pt-6">
+                    <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 pl-2 flex items-center gap-2">
+                        <IconoHistory className="w-4 h-4"/> Últimas Salidas Registradas
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
+                        {ultimasSalidas.length > 0 ? (
+                            ultimasSalidas.map((mov, i) => (
+                                <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center animate-fade-in hover:shadow-md transition-shadow">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-rose-100 text-rose-600 w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs">
+                                            {i + 1}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-slate-700 text-sm">{mov.nombre}</p>
+                                            <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
+                                                Retiró: {mov.recibido_por} • Destino: {mov.nombre_obra}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="block font-bold text-rose-600 text-sm">-{mov.cantidad} unid.</span>
+                                        <span className="text-[9px] text-slate-400 uppercase font-bold bg-slate-100 px-2 py-0.5 rounded">{new Date(mov.fecha_registro).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-6 text-slate-400 text-sm italic bg-white rounded-xl border border-dashed border-slate-300">
+                                No has registrado salidas recientes.
+                            </div>
+                        )}
+                    </div>
+                </div>
              </div>
           )}
 
@@ -538,6 +574,7 @@ function App() {
                 </div>
                 
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 h-fit relative">
+                    {/* MODAL DE EDICIÓN MEJORADO */}
                     {mostrarModalEdicion && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
                             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
@@ -546,15 +583,24 @@ function App() {
                                     <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Nombre del Producto</label><input className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formulario.nombre} onChange={manejarInput} name="nombre" /></div>
                                     <div className="grid grid-cols-2 gap-5">
                                         <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">SKU</label><input className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50" value={formulario.sku} onChange={manejarInput} name="sku" /></div>
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Categoría</label><input className="w-full border border-slate-300 p-3 rounded-xl" value={formulario.categoria} onChange={manejarInput} name="categoria" list="lista-categorias" /></div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Categoría</label><input className="w-full border border-slate-300 p-3 rounded-xl" value={formulario.categoria} onChange={manejarInput} name="categoria" list="lista-categorias" />
+                                        </div>
                                     </div>
+                                    
                                     {rolUsuario === 'ADMIN' && (
-                                       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100"><label className="text-xs font-bold text-blue-600 block mb-1 uppercase tracking-wide">Precio Costo Unitario ($)</label><input className="w-full border border-blue-200 p-3 rounded-xl font-bold text-lg bg-white" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" /></div>
+                                       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                          <label className="text-xs font-bold text-blue-600 block mb-1 uppercase tracking-wide">Precio Costo Unitario ($)</label><input className="w-full border border-blue-200 p-3 rounded-xl font-bold text-lg bg-white" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" />
+                                       </div>
                                     )}
+
                                     <div className="grid grid-cols-2 gap-5 pt-2">
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Proveedor (Último)</label><input className="w-full border border-slate-300 p-3 rounded-xl" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" list="lista-proveedores" /></div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Proveedor (Último)</label><input className="w-full border border-slate-300 p-3 rounded-xl" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" list="lista-proveedores" />
+                                        </div>
                                         <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Recibido Por</label><input className="w-full border border-slate-300 p-3 rounded-xl" placeholder="Nombre" value={formulario.recibido_por} onChange={manejarInput} name="recibido_por" /></div>
                                     </div>
+
                                     <div className="flex gap-3 mt-8">
                                         <button type="button" onClick={() => setMostrarModalEdicion(false)} className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3.5 rounded-xl font-bold transition">Cancelar</button>
                                         <button className="w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-200 transition">Guardar Cambios</button>
