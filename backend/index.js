@@ -295,7 +295,7 @@ app.post('/ingreso-masivo', async (req, res) => {
   } catch (e) { await client.query('ROLLBACK'); console.error(e); res.status(500).send('Error'); } finally { client.release(); }
 });
 
-// 13. REGISTRAR INGRESO COMPLETO (MANUAL CON PROVEEDOR)
+// 13. REGISTRAR INGRESO COMPLETO (PROTEGIDO)
 app.post('/registrar-ingreso-completo', async (req, res) => {
   const { esNuevo, id_producto, nombre, categoria, cantidad, precio_unitario, fecha, proveedor, recibido_por } = req.body;
   const client = await pool.connect();
@@ -304,11 +304,15 @@ app.post('/registrar-ingreso-completo', async (req, res) => {
     let finalId = id_producto;
 
     if (esNuevo) {
-      const skuAuto = nombre.substring(0, 3).toUpperCase() + '-' + Math.floor(Math.random() * 10000);
+      // PROTECCIÓN: Si el nombre llega vacío, usamos un genérico para que NO explote
+      const nombreFinal = nombre || "Producto Sin Nombre"; 
+      
+      const skuAuto = nombreFinal.substring(0, 3).toUpperCase() + '-' + Math.floor(Math.random() * 10000);
+      
       const resInsert = await client.query(
         `INSERT INTO productos (nombre, sku, categoria, precio_costo, stock_actual, ultimo_proveedor) 
          VALUES ($1, $2, $3, $4, 0, $5) RETURNING id`,
-        [nombre, skuAuto, categoria || 'General', precio_unitario, proveedor]
+        [nombreFinal, skuAuto, categoria || 'General', precio_unitario, proveedor]
       );
       finalId = resInsert.rows[0].id;
     } else {
@@ -319,7 +323,6 @@ app.post('/registrar-ingreso-completo', async (req, res) => {
     }
 
     await client.query(`UPDATE productos SET stock_actual = stock_actual + $1 WHERE id = $2`, [cantidad, finalId]);
-    
     await client.query(
       `INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, id_obra, proveedor, recibido_por) 
        VALUES ($1, 'ENTRADA', $2, $3, NULL, $4, $5)`,
@@ -327,10 +330,10 @@ app.post('/registrar-ingreso-completo', async (req, res) => {
     );
 
     await client.query('COMMIT');
-    res.json({ success: true, message: 'Ingreso guardado correctamente' });
+    res.json({ success: true });
   } catch (err) {
     await client.query('ROLLBACK');
-    // ESTO ES CLAVE: Devuelve el error real al frontend para que sepas qué pasó
+    console.error(err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
     client.release();

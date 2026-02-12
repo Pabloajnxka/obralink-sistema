@@ -9,7 +9,6 @@ const IconoHistory = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" he
 const IconoBuilding = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="22"/><line x1="15" y1="22" x2="15" y2="22"/><line x1="12" y1="22" x2="12" y2="22"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
 const IconoIn = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
 const IconoOut = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
-const IconoTag = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
 const IconoChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
 const IconoMail = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
 const IconoLock = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -148,14 +147,27 @@ function App() {
     } catch (e) { console.error("Error cargando datos:", e); } 
   }
 
-  // --- LÓGICA DE INGRESO MANUAL COMPLETO ---
+  // --- LÓGICA DE INGRESO MANUAL CORREGIDA ---
   const registrarIngresoCompleto = async (e) => {
     e.preventDefault();
     if (ingresoManual.esNuevo && !ingresoManual.nombre_nuevo) return alert("⚠️ Falta el nombre del producto nuevo");
     if (!ingresoManual.esNuevo && !ingresoManual.id_producto) return alert("⚠️ Selecciona un producto existente");
     if (!ingresoManual.cantidad || !ingresoManual.precio_unitario) return alert("⚠️ Faltan datos numéricos");
 
-    const payload = { ...ingresoManual };
+    // AQUÍ ESTÁ LA SOLUCIÓN DEFINITIVA:
+    // Mapeamos explícitamente "nombre_nuevo" a "nombre" para que el backend lo reciba bien
+    const payload = {
+        esNuevo: ingresoManual.esNuevo,
+        id_producto: ingresoManual.id_producto,
+        // ESTO EVITA EL ERROR "UNDEFINED SUBSTRING":
+        nombre: ingresoManual.esNuevo ? ingresoManual.nombre_nuevo : '', 
+        categoria: ingresoManual.categoria,
+        cantidad: ingresoManual.cantidad,
+        precio_unitario: ingresoManual.precio_unitario,
+        fecha: ingresoManual.fecha,
+        proveedor: ingresoManual.proveedor,
+        recibido_por: ingresoManual.recibido_por
+    };
 
     try {
         const r = await fetch(`${API_URL}/registrar-ingreso-completo`, {
@@ -168,8 +180,7 @@ function App() {
             setIngresoManual({ ...ingresoManual, nombre_nuevo: '', cantidad: '', precio_unitario: '', proveedor: '', recibido_por: '' });
             obtenerDatos();
         } else {
-            // AQUÍ ESTÁ LA CLAVE: El mensaje de error detallado
-            alert("❌ Error al registrar: " + (d.error || "Revisa si la Base de Datos está actualizada."));
+            alert("❌ Error al registrar: " + (d.error || "Error desconocido en servidor"));
         }
     } catch (e) { alert("Error de conexión: " + e.message); }
   }
@@ -368,6 +379,7 @@ function App() {
 
                 {tabIngreso === 'MANUAL' ? (
                   <form onSubmit={registrarIngresoCompleto} className="p-6 md:p-8 space-y-4">
+                     {/* SWITCH NUEVO / EXISTENTE */}
                      <div className="flex items-center gap-2 mb-4 bg-slate-100 p-3 rounded">
                         <input type="checkbox" id="esNuevo" className="w-5 h-5 accent-green-600" checked={ingresoManual.esNuevo} onChange={(e) => setIngresoManual({...ingresoManual, esNuevo: e.target.checked})} />
                         <label htmlFor="esNuevo" className="font-bold text-slate-700 cursor-pointer">¿Es un Producto Nuevo?</label>
