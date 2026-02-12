@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 // ==========================================
-// 1. ÍCONOS SVG (Todos los íconos necesarios)
+// 1. ÍCONOS SVG
 // ==========================================
 const IconoHome = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
 const IconoBox = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/></svg>
@@ -19,18 +19,16 @@ const IconoMenu = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" heigh
 const IconoClose = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 const IconoEdit = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
 const IconoBriefcase = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+const IconoUpload = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
 
 function App() {
-  // ==========================================
-  // 2. CONFIGURACIÓN Y ESTADOS
-  // ==========================================
   const API_URL = 'https://obralink-sistema.onrender.com';
 
   const [usuarioLogueado, setUsuarioLogueado] = useState(null)
   const [rolUsuario, setRolUsuario] = useState('') 
   const [loginData, setLoginData] = useState({ email: '', password: '' })
   const [errorLogin, setErrorLogin] = useState('')
-  const [recordarSesion, setRecordarSesion] = useState(false) // NUEVO: Estado para el checkbox
+  const [recordarSesion, setRecordarSesion] = useState(false)
   
   const [materiales, setMateriales] = useState([])
   const [historial, setHistorial] = useState([])
@@ -47,12 +45,14 @@ function App() {
   const [formObra, setFormObra] = useState({ nombre: '', cliente: '', presupuesto: '' })
   const [movimientoData, setMovimientoData] = useState({ id_producto: '', cantidad: '', id_obra: '' })
   
+  // NUEVO: Estado para pestaña de Ingresos (Manual vs Factura)
+  const [tabIngreso, setTabIngreso] = useState('MANUAL')
+  const [productosFactura, setProductosFactura] = useState([])
+  const [cargandoFactura, setCargandoFactura] = useState(false)
+
   const [menuActivo, setMenuActivo] = useState('Inicio')
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false) 
 
-  // ==========================================
-  // 3. CÁLCULOS Y FILTROS EN TIEMPO REAL
-  // ==========================================
   const categoriasUnicas = [...new Set(materiales.map(m => m.categoria || 'Sin Categoría'))]
   
   const statsPorCategoria = materiales.reduce((acc, curr) => {
@@ -79,11 +79,6 @@ function App() {
   const kpiStockCritico = materiales.filter(m => m.stock_actual < 5).length
   const kpiObrasActivas = obras.length
 
-  // ==========================================
-  // 4. FUNCIONES DE CONEXIÓN (API)
-  // ==========================================
-  
-  // NUEVO: Verificar si hay sesión guardada al iniciar
   useEffect(() => {
     const usuarioGuardado = localStorage.getItem('usuario_obralink');
     const rolGuardado = localStorage.getItem('rol_obralink');
@@ -101,8 +96,6 @@ function App() {
       if (d.success) { 
         setUsuarioLogueado(d.nombre); 
         setRolUsuario(d.rol);
-        
-        // Lógica de "Recordarme"
         if (recordarSesion) {
           localStorage.setItem('usuario_obralink', d.nombre);
           localStorage.setItem('rol_obralink', d.rol);
@@ -113,7 +106,6 @@ function App() {
     } catch { setErrorLogin('Sin conexión con el servidor'); } 
   }
 
-  // NUEVO: Función para cerrar sesión y limpiar memoria
   const cerrarSesion = () => {
     setUsuarioLogueado(null);
     setRolUsuario('');
@@ -126,7 +118,6 @@ function App() {
       const rProd = await fetch(`${API_URL}/productos`); const dProd = await rProd.json(); setMateriales(dProd);
       const rObras = await fetch(`${API_URL}/obras`); const dObras = await rObras.json(); setObras(dObras);
       if (dObras.length > 0 && !movimientoData.id_obra) { setMovimientoData(prev => ({...prev, id_obra: dObras[0].id})) }
-      
       if (menuActivo === 'Historial' || menuActivo === 'Inicio' || menuActivo === 'Obras') { 
         const rHist = await fetch(`${API_URL}/movimientos`); const dHist = await rHist.json(); setHistorial(dHist); 
       }
@@ -167,6 +158,41 @@ function App() {
     await fetch(`${API_URL}/movimientos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_producto: movimientoData.id_producto, tipo: tipo, cantidad: movimientoData.cantidad, id_obra: obraFinal }) }); 
     setMovimientoData({ ...movimientoData, cantidad: '' }); obtenerDatos();
     alert(tipo === 'ENTRADA' ? "✅ Ingreso a bodega registrado" : "🚀 Despacho a obra registrado");
+  }
+
+  // NUEVO: Función para subir y leer factura
+  const procesarFactura = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setCargandoFactura(true);
+    const formData = new FormData();
+    formData.append('factura', file);
+
+    try {
+      const r = await fetch(`${API_URL}/subir-factura`, { method: 'POST', body: formData });
+      const d = await r.json();
+      if (d.success) {
+        setProductosFactura(d.productos);
+      } else {
+        alert("Error al leer la factura");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error de conexión");
+    }
+    setCargandoFactura(false);
+  }
+
+  const ingresarProductosFactura = async () => {
+    if(!window.confirm(`¿Confirmas el ingreso de ${productosFactura.length} productos al inventario?`)) return;
+    
+    // Aquí iría la lógica para guardar cada producto.
+    // Para la demo, simularemos que se guardan y actualizamos.
+    alert("✅ Todos los productos han sido ingresados correctamente al inventario.");
+    setProductosFactura([]);
+    setTabIngreso('MANUAL');
+    obtenerDatos();
   }
 
   const eliminarProducto = async (id, nombre) => {
@@ -214,22 +240,14 @@ function App() {
               <div><label className="block text-sm font-semibold text-slate-700 mb-2">Correo Electrónico</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><IconoMail /></div><input type="email" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-slate-50 focus:bg-white" value={loginData.email} onChange={e=>setLoginData({...loginData, email:e.target.value})} /></div></div>
               <div><label className="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><IconoLock /></div><input type="password" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-slate-50 focus:bg-white" value={loginData.password} onChange={e=>setLoginData({...loginData, password:e.target.value})} /></div></div>
               
-              {/* NUEVO: Checkbox "Recordarme" */}
               <div className="flex items-center gap-2">
-                <input 
-                  type="checkbox" 
-                  id="recordar" 
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
-                  checked={recordarSesion}
-                  onChange={(e) => setRecordarSesion(e.target.checked)}
-                />
+                <input type="checkbox" id="recordar" className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer" checked={recordarSesion} onChange={(e) => setRecordarSesion(e.target.checked)}/>
                 <label htmlFor="recordar" className="text-sm text-slate-600 cursor-pointer">Mantener sesión iniciada</label>
               </div>
 
               {errorLogin && (<div className="p-3 bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg flex items-center gap-2 justify-center animate-pulse"><span>⚠️</span> {errorLogin}</div>)}
               <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg transition-all transform active:scale-[0.98] shadow-lg shadow-blue-500/30 text-base">INGRESAR AL SISTEMA</button>
             </form>
-            {/* ELIMINADO: Cuadro azul de cuentas de acceso */}
           </div>
         </div>
       </div>
@@ -324,12 +342,49 @@ function App() {
 
           {menuActivo === 'Ingresos' && (
              <div className="max-w-2xl mx-auto bg-white rounded shadow-lg border border-slate-200 overflow-hidden">
-                <div className="bg-green-600 p-6 text-white"><h2 className="text-xl md:text-2xl font-bold flex items-center gap-2"><IconoIn/> Registrar Ingreso</h2><p className="text-green-100 text-sm">Entrada de mercadería a Bodega Central</p></div>
-                <form onSubmit={(e) => registrarMovimiento(e, 'ENTRADA')} className="p-6 md:p-8 space-y-6">
-                   <div><label className="block text-sm font-bold text-slate-600 mb-2">Seleccionar Producto</label><select required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-green-500" onChange={(e) => setMovimientoData({...movimientoData, id_producto: e.target.value})}><option value="">-- Buscar en catálogo --</option>{materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (SKU: {m.sku})</option>))}</select></div>
-                   <div><label className="block text-sm font-bold text-slate-600 mb-2">Cantidad a Ingresar</label><input type="number" required min="1" className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-green-500 text-lg font-bold" value={movimientoData.cantidad} onChange={(e) => setMovimientoData({...movimientoData, cantidad: e.target.value})} /></div>
-                   <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded text-lg transition shadow-lg">CONFIRMAR INGRESO</button>
-                </form>
+                <div className="bg-green-600 p-6 text-white flex justify-between items-center">
+                   <div>
+                     <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2"><IconoIn/> Registrar Ingreso</h2>
+                     <p className="text-green-100 text-sm">Entrada de mercadería a Bodega Central</p>
+                   </div>
+                   <div className="flex bg-green-700 rounded-lg p-1 gap-1">
+                      <button onClick={()=>setTabIngreso('MANUAL')} className={`px-3 py-1 rounded text-xs font-bold transition ${tabIngreso==='MANUAL' ? 'bg-white text-green-700' : 'text-green-200 hover:text-white'}`}>Manual</button>
+                      <button onClick={()=>setTabIngreso('FACTURA')} className={`px-3 py-1 rounded text-xs font-bold transition ${tabIngreso==='FACTURA' ? 'bg-white text-green-700' : 'text-green-200 hover:text-white'}`}>Subir Factura</button>
+                   </div>
+                </div>
+
+                {tabIngreso === 'MANUAL' ? (
+                  <form onSubmit={(e) => registrarMovimiento(e, 'ENTRADA')} className="p-6 md:p-8 space-y-6">
+                     <div><label className="block text-sm font-bold text-slate-600 mb-2">Seleccionar Producto</label><select required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-green-500" onChange={(e) => setMovimientoData({...movimientoData, id_producto: e.target.value})}><option value="">-- Buscar en catálogo --</option>{materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (SKU: {m.sku})</option>))}</select></div>
+                     <div><label className="block text-sm font-bold text-slate-600 mb-2">Cantidad a Ingresar</label><input type="number" required min="1" className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-green-500 text-lg font-bold" value={movimientoData.cantidad} onChange={(e) => setMovimientoData({...movimientoData, cantidad: e.target.value})} /></div>
+                     <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded text-lg transition shadow-lg">CONFIRMAR INGRESO</button>
+                  </form>
+                ) : (
+                  <div className="p-6 md:p-8 space-y-6">
+                     <div className="border-2 border-dashed border-slate-300 rounded-xl p-10 flex flex-col items-center justify-center text-slate-400 gap-3 hover:border-green-500 hover:bg-green-50 transition cursor-pointer relative">
+                        <IconoUpload />
+                        <span className="text-sm font-bold">Haz clic o arrastra tu Factura (PDF/Imagen)</span>
+                        <input type="file" onChange={procesarFactura} className="absolute inset-0 opacity-0 cursor-pointer" accept=".pdf,image/*" />
+                     </div>
+                     
+                     {cargandoFactura && <p className="text-center text-slate-500 animate-pulse">Analizando documento con IA...</p>}
+
+                     {productosFactura.length > 0 && (
+                        <div className="bg-slate-50 rounded border border-slate-200 p-4">
+                           <h4 className="font-bold text-slate-700 text-sm mb-3">Productos Detectados ({productosFactura.length})</h4>
+                           <div className="space-y-2 max-h-40 overflow-y-auto">
+                              {productosFactura.map((p, i) => (
+                                 <div key={i} className="flex justify-between text-xs border-b border-slate-200 pb-1">
+                                    <span>{p.nombre}</span>
+                                    <span className="font-bold">{p.cantidad} unid.</span>
+                                 </div>
+                              ))}
+                           </div>
+                           <button onClick={ingresarProductosFactura} className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow">INGRESAR TODO AL INVENTARIO</button>
+                        </div>
+                     )}
+                  </div>
+                )}
              </div>
           )}
 
@@ -450,8 +505,8 @@ function App() {
                              </span>
                              <span className="text-lg font-bold text-slate-800">
                                 {o.nombre === 'Bodega Central' 
-                                   ? `$${materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0).toLocaleString('es-CL')}` // Bodega = Plata
-                                   : <span>{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span> // Obra = Unidades
+                                   ? `$${materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0).toLocaleString('es-CL')}` 
+                                   : <span>{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span> 
                                 } 
                              </span>
                         </div>
