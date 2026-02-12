@@ -305,7 +305,6 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-700 relative selection:bg-blue-100 selection:text-blue-900">
       
-      {/* Estilos para animaciones simples */}
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
@@ -489,7 +488,7 @@ function App() {
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between"><div className="flex flex-col"><p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Stock Crítico</p><p className={`text-2xl font-bold mt-1 ${kpiStockCritico > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{kpiStockCritico} <span className="text-xs font-normal text-slate-400">productos</span></p></div><div className={`p-3 rounded-full ${kpiStockCritico > 0 ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-500'}`}><IconoFilter/></div></div>
                 </div>
                 
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 h-fit relative overflow-hidden">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 h-fit relative">
                     {mostrarModalEdicion && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
                             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
@@ -524,12 +523,49 @@ function App() {
                         <div className="flex items-center bg-white border border-slate-300 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all"><span className="text-slate-400"><IconoFilter className="w-4 h-4"/></span><input type="text" placeholder="Buscar producto..." value={busqueda} onChange={e=>setBusqueda(e.target.value)} className="text-xs px-2 outline-none w-full md:w-48 bg-transparent" /></div>
                       </div>
                     </div>
-                    <div className="overflow-x-auto">
+                    
+                    {/* --- VISTA MÓVIL (TARJETAS) --- */}
+                    <div className="md:hidden p-4 space-y-4 bg-slate-50/50">
+                        {materialesFiltrados.map(mat => (
+                            <div key={mat.id} className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 relative overflow-hidden">
+                                <div className={`absolute top-0 left-0 w-1 h-full ${mat.stock_actual <= 5 ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h3 className="font-bold text-slate-800 text-lg">{mat.nombre}</h3>
+                                        <p className="text-xs text-slate-400 font-mono">{mat.sku}</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => abrirEdicion(mat)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"><IconoEdit /></button>
+                                        <button onClick={() => eliminarProducto(mat.id, mat.nombre)} className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100"><IconoTrash /></button>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 mt-4">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Categoría</p>
+                                        <p className="text-sm font-medium text-slate-600 bg-slate-100 inline-block px-2 py-1 rounded mt-1">{mat.categoria || 'General'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Stock</p>
+                                        <p className={`text-sm font-bold mt-1 ${mat.stock_actual <= 5 ? 'text-rose-600' : 'text-emerald-600'}`}>{mat.stock_actual} unid.</p>
+                                    </div>
+                                    {rolUsuario === 'ADMIN' && (
+                                        <div className="col-span-2 border-t border-slate-100 pt-2 mt-1 flex justify-between items-center">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Valor Total</p>
+                                            <p className="text-base font-bold text-slate-800">${(mat.stock_actual * mat.precio_costo).toLocaleString()}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* --- VISTA ESCRITORIO (TABLA) --- */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-sm text-left min-w-[700px]">
                         <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                           <tr><th className="px-6 py-4 font-bold tracking-wider">SKU</th><th className="px-6 py-4 font-bold tracking-wider">Producto</th><th className="px-6 py-4 font-bold tracking-wider">Categoría</th><th className="px-6 py-4 text-center font-bold tracking-wider">Estado Stock</th>{rolUsuario === 'ADMIN' && <th className="px-6 py-4 text-right font-bold tracking-wider">Costo Unit.</th>}{rolUsuario === 'ADMIN' && <th className="px-6 py-4 text-right font-bold tracking-wider">Valor Total</th>}<th className="px-6 py-4 text-center font-bold tracking-wider">Acciones</th></tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody>
                           {materialesFiltrados.map((mat) => (
                             <tr key={mat.id} className="hover:bg-blue-50/50 transition-colors group">
                               <td className="px-6 py-4 text-slate-500 text-xs font-mono">{mat.sku}</td>
