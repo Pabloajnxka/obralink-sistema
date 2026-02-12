@@ -24,13 +24,13 @@ function App() {
   // ==========================================
   // 2. CONFIGURACIÓN Y ESTADOS
   // ==========================================
-  // 👇 URL FIJA PARA RENDER
   const API_URL = 'https://obralink-sistema.onrender.com';
 
   const [usuarioLogueado, setUsuarioLogueado] = useState(null)
   const [rolUsuario, setRolUsuario] = useState('') 
   const [loginData, setLoginData] = useState({ email: '', password: '' })
   const [errorLogin, setErrorLogin] = useState('')
+  const [recordarSesion, setRecordarSesion] = useState(false) // NUEVO: Estado para el checkbox
   
   const [materiales, setMateriales] = useState([])
   const [historial, setHistorial] = useState([])
@@ -83,13 +83,42 @@ function App() {
   // 4. FUNCIONES DE CONEXIÓN (API)
   // ==========================================
   
+  // NUEVO: Verificar si hay sesión guardada al iniciar
+  useEffect(() => {
+    const usuarioGuardado = localStorage.getItem('usuario_obralink');
+    const rolGuardado = localStorage.getItem('rol_obralink');
+    if (usuarioGuardado && rolGuardado) {
+      setUsuarioLogueado(usuarioGuardado);
+      setRolUsuario(rolGuardado);
+    }
+  }, []);
+
   const manejarLogin = async (e) => { 
     e.preventDefault(); 
     try { 
       const r = await fetch(`${API_URL}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loginData) }); 
       const d = await r.json(); 
-      if (d.success) { setUsuarioLogueado(d.nombre); setRolUsuario(d.rol); } else { setErrorLogin('Acceso denegado'); }
+      if (d.success) { 
+        setUsuarioLogueado(d.nombre); 
+        setRolUsuario(d.rol);
+        
+        // Lógica de "Recordarme"
+        if (recordarSesion) {
+          localStorage.setItem('usuario_obralink', d.nombre);
+          localStorage.setItem('rol_obralink', d.rol);
+        }
+      } else { 
+        setErrorLogin('Acceso denegado'); 
+      }
     } catch { setErrorLogin('Sin conexión con el servidor'); } 
+  }
+
+  // NUEVO: Función para cerrar sesión y limpiar memoria
+  const cerrarSesion = () => {
+    setUsuarioLogueado(null);
+    setRolUsuario('');
+    localStorage.removeItem('usuario_obralink');
+    localStorage.removeItem('rol_obralink');
   }
   
   const obtenerDatos = async () => { 
@@ -98,7 +127,6 @@ function App() {
       const rObras = await fetch(`${API_URL}/obras`); const dObras = await rObras.json(); setObras(dObras);
       if (dObras.length > 0 && !movimientoData.id_obra) { setMovimientoData(prev => ({...prev, id_obra: dObras[0].id})) }
       
-      // CARGAR HISTORIAL TAMBIÉN EN OBRAS PARA PODER CONTAR MATERIALES
       if (menuActivo === 'Historial' || menuActivo === 'Inicio' || menuActivo === 'Obras') { 
         const rHist = await fetch(`${API_URL}/movimientos`); const dHist = await rHist.json(); setHistorial(dHist); 
       }
@@ -185,10 +213,23 @@ function App() {
             <form onSubmit={manejarLogin} className="space-y-6">
               <div><label className="block text-sm font-semibold text-slate-700 mb-2">Correo Electrónico</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><IconoMail /></div><input type="email" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-slate-50 focus:bg-white" value={loginData.email} onChange={e=>setLoginData({...loginData, email:e.target.value})} /></div></div>
               <div><label className="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label><div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><IconoLock /></div><input type="password" className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-slate-50 focus:bg-white" value={loginData.password} onChange={e=>setLoginData({...loginData, password:e.target.value})} /></div></div>
+              
+              {/* NUEVO: Checkbox "Recordarme" */}
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  id="recordar" 
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                  checked={recordarSesion}
+                  onChange={(e) => setRecordarSesion(e.target.checked)}
+                />
+                <label htmlFor="recordar" className="text-sm text-slate-600 cursor-pointer">Mantener sesión iniciada</label>
+              </div>
+
               {errorLogin && (<div className="p-3 bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg flex items-center gap-2 justify-center animate-pulse"><span>⚠️</span> {errorLogin}</div>)}
               <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg transition-all transform active:scale-[0.98] shadow-lg shadow-blue-500/30 text-base">INGRESAR AL SISTEMA</button>
             </form>
-            <div className="mt-8 p-4 bg-blue-50 rounded-lg text-xs text-blue-800 border border-blue-100"><p className="font-bold mb-2 uppercase">Cuentas de Acceso:</p><p className="mb-1">👑 <strong>Admin (Ve Todo):</strong> admin@admin / admin123</p><p>👷 <strong>Bodega (Sin Precios):</strong> bodega@obralink.cl / bodega123</p></div>
+            {/* ELIMINADO: Cuadro azul de cuentas de acceso */}
           </div>
         </div>
       </div>
@@ -227,7 +268,7 @@ function App() {
       <div className="flex-1 flex flex-col h-[calc(100vh-60px)] md:h-screen overflow-hidden">
         <header className="hidden md:flex h-14 bg-white shadow-sm border-b items-center justify-between px-6 z-10">
           <div className="text-lg font-bold text-slate-700 uppercase flex items-center gap-2"><span className="text-blue-500">/</span> {menuActivo}</div>
-          <button onClick={()=>setUsuarioLogueado(null)} className="text-xs font-bold text-red-500 hover:text-red-700 uppercase border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition">Cerrar Sesión</button>
+          <button onClick={cerrarSesion} className="text-xs font-bold text-red-500 hover:text-red-700 uppercase border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition">Cerrar Sesión</button>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-100 pb-20 md:pb-6">
@@ -403,7 +444,6 @@ function App() {
                         </div>
                         {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString()}</span></div>)}
                         
-                        {/* LÓGICA CORREGIDA: Bodega muestra DINERO ($), Obras muestran UNIDADES */}
                         <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2">
                              <span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
                                 <IconoBox/> {o.nombre === 'Bodega Central' ? 'Valor Materiales' : 'Materiales Recibidos'}
