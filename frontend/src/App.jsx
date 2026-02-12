@@ -80,14 +80,14 @@ function App() {
     return coincideTexto && coincideTipo;
   })
 
-  // --- LOGICA DE ÚLTIMOS MOVIMIENTOS (MEMORIA CORTO PLAZO) ---
+  // --- LOGICA CORREGIDA: ORDEN DESCENDENTE (MÁS NUEVO ARRIBA) ---
+  // El backend ya devuelve los datos ordenados por fecha DESC (más nuevo primero)
+  // Así que solo tomamos los primeros 5 y LISTO. No usamos .reverse().
   
-  // 1. ÚLTIMOS INGRESOS (Más reciente primero)
   const ultimosIngresos = historial
     .filter(h => h.tipo === 'ENTRADA')
-    .slice(0, 5); // Tomamos los 5 primeros (el historial ya viene ordenado por fecha DESC del backend)
+    .slice(0, 5); 
 
-  // 2. ÚLTIMAS SALIDAS (Más reciente primero)
   const ultimasSalidas = historial
     .filter(h => h.tipo === 'SALIDA')
     .slice(0, 5);
@@ -472,7 +472,7 @@ function App() {
                 {/* === NUEVA SECCIÓN: LO ÚLTIMO AGREGADO (VISIBLE SIEMPRE) === */}
                 <div className="bg-slate-50 border-t border-slate-200 pt-6">
                     <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 pl-2 flex items-center gap-2">
-                        <IconoHistory className="w-4 h-4"/> Últimos Ingresos Registrados
+                        <IconoHistory className="w-4 h-4"/> Últimos Ingresos (Orden Cronológico)
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
                         {ultimosIngresos.length > 0 ? (
@@ -480,6 +480,7 @@ function App() {
                                 <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center animate-fade-in hover:shadow-md transition-shadow">
                                     <div className="flex items-center gap-4">
                                         <div className="bg-emerald-100 text-emerald-600 w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs">
+                                            {/* Contador visual simple 1, 2, 3... */}
                                             {i + 1}
                                         </div>
                                         <div>
