@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
-// ... (Tus íconos siguen igual, no los borres)
-// (Asegúrate de copiar los íconos del código anterior si no los tienes a mano)
+// ==========================================
+// 1. ÍCONOS SVG
+// ==========================================
 const IconoHome = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
 const IconoBox = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/></svg>
 const IconoHistory = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -51,10 +52,10 @@ function App() {
     recibido_por: ''
   })
 
-  // Estado para Edición (Modificado para soportar más datos)
+  // Estado para Edición
   const [formulario, setFormulario] = useState({ 
     nombre: '', sku: '', precio_costo: '', categoria: '',
-    proveedor: '', recibido_por: '', fecha_ultima_compra: '' 
+    proveedor: '', recibido_por: ''
   })
   const [idEditando, setIdEditando] = useState(null)
   const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false)
@@ -69,7 +70,9 @@ function App() {
   const [menuActivo, setMenuActivo] = useState('Inicio')
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false) 
 
-  const categoriasUnicas = [...new Set(materiales.map(m => m.categoria || 'Sin Categoría'))]
+  // --- CÁLCULO DE SUGERENCIAS ÚNICAS ---
+  const categoriasUnicas = [...new Set(materiales.map(m => m.categoria || '').filter(c => c !== ''))]
+  const proveedoresUnicos = [...new Set(materiales.map(m => m.ultimo_proveedor || '').filter(p => p !== ''))]
   
   const statsPorCategoria = materiales.reduce((acc, curr) => {
     const cat = curr.categoria || 'General';
@@ -159,15 +162,13 @@ function App() {
     } catch (e) { alert("Error de conexión"); }
   }
 
-  // --- LOGICA EDICIÓN ACTUALIZADA ---
   const abrirEdicion = (prod) => {
      setFormulario({ 
          nombre: prod.nombre, 
          sku: prod.sku, 
          precio_costo: prod.precio_costo, 
          categoria: prod.categoria,
-         // Campos extra opcionales para edición rápida
-         proveedor: '', 
+         proveedor: prod.ultimo_proveedor || '', 
          recibido_por: ''
      });
      setIdEditando(prod.id);
@@ -288,6 +289,14 @@ function App() {
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-100 pb-20 md:pb-6">
           
+          {/* DEFINICIÓN DE LISTAS DE AUTOGUARDADO */}
+          <datalist id="lista-categorias">
+            {categoriasUnicas.map((cat, i) => <option key={i} value={cat} />)}
+          </datalist>
+          <datalist id="lista-proveedores">
+            {proveedoresUnicos.map((prov, i) => <option key={i} value={prov} />)}
+          </datalist>
+
           {menuActivo === 'Inicio' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -321,7 +330,6 @@ function App() {
 
                 {tabIngreso === 'MANUAL' ? (
                   <form onSubmit={registrarIngresoCompleto} className="p-6 md:p-8 space-y-4">
-                     {/* SWITCH NUEVO / EXISTENTE */}
                      <div className="flex items-center gap-2 mb-4 bg-slate-100 p-3 rounded">
                         <input type="checkbox" id="esNuevo" className="w-5 h-5 accent-green-600" checked={ingresoManual.esNuevo} onChange={(e) => setIngresoManual({...ingresoManual, esNuevo: e.target.checked})} />
                         <label htmlFor="esNuevo" className="font-bold text-slate-700 cursor-pointer">¿Es un Producto Nuevo?</label>
@@ -330,7 +338,10 @@ function App() {
                      {ingresoManual.esNuevo ? (
                         <div className="grid grid-cols-2 gap-4">
                             <div><label className="text-xs font-bold text-slate-500">Nombre del Producto *</label><input required className="w-full border p-2 rounded" type="text" placeholder="Ej: Martillo" value={ingresoManual.nombre_nuevo} onChange={e=>setIngresoManual({...ingresoManual, nombre_nuevo: e.target.value})} /></div>
-                            <div><label className="text-xs font-bold text-slate-500">Categoría</label><input className="w-full border p-2 rounded" type="text" placeholder="Ej: Herramientas" value={ingresoManual.categoria} onChange={e=>setIngresoManual({...ingresoManual, categoria: e.target.value})} /></div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500">Categoría</label>
+                                <input className="w-full border p-2 rounded" type="text" placeholder="Ej: Herramientas" list="lista-categorias" value={ingresoManual.categoria} onChange={e=>setIngresoManual({...ingresoManual, categoria: e.target.value})} />
+                            </div>
                         </div>
                      ) : (
                         <div>
@@ -344,7 +355,10 @@ function App() {
 
                      <div className="grid grid-cols-2 gap-4">
                         <div><label className="text-xs font-bold text-slate-500">Fecha *</label><input required className="w-full border p-2 rounded" type="date" value={ingresoManual.fecha} onChange={e=>setIngresoManual({...ingresoManual, fecha: e.target.value})} /></div>
-                        <div><label className="text-xs font-bold text-slate-500">Empresa / Proveedor</label><input className="w-full border p-2 rounded" type="text" placeholder="Ej: Sodimac" value={ingresoManual.proveedor} onChange={e=>setIngresoManual({...ingresoManual, proveedor: e.target.value})} /></div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500">Empresa / Proveedor</label>
+                            <input className="w-full border p-2 rounded" type="text" placeholder="Ej: Sodimac" list="lista-proveedores" value={ingresoManual.proveedor} onChange={e=>setIngresoManual({...ingresoManual, proveedor: e.target.value})} />
+                        </div>
                      </div>
 
                      <div className="grid grid-cols-2 gap-4">
@@ -418,7 +432,10 @@ function App() {
                                     <div><label className="text-xs font-bold text-slate-500">Nombre del Producto</label><input className="w-full border p-2 rounded" value={formulario.nombre} onChange={manejarInput} name="nombre" /></div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div><label className="text-xs font-bold text-slate-500">SKU</label><input className="w-full border p-2 rounded bg-slate-50" value={formulario.sku} onChange={manejarInput} name="sku" /></div>
-                                        <div><label className="text-xs font-bold text-slate-500">Categoría</label><input className="w-full border p-2 rounded" value={formulario.categoria} onChange={manejarInput} name="categoria" /></div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500">Categoría</label>
+                                            <input className="w-full border p-2 rounded" value={formulario.categoria} onChange={manejarInput} name="categoria" list="lista-categorias" />
+                                        </div>
                                     </div>
                                     
                                     {rolUsuario === 'ADMIN' && (
@@ -429,7 +446,10 @@ function App() {
                                     )}
 
                                     <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                                        <div><label className="text-xs font-bold text-slate-500">Proveedor (Último)</label><input className="w-full border p-2 rounded" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" /></div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500">Proveedor (Último)</label>
+                                            <input className="w-full border p-2 rounded" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" list="lista-proveedores" />
+                                        </div>
                                         <div><label className="text-xs font-bold text-slate-500">Recibido Por</label><input className="w-full border p-2 rounded" placeholder="Nombre" value={formulario.recibido_por} onChange={manejarInput} name="recibido_por" /></div>
                                     </div>
 

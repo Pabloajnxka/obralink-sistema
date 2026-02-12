@@ -41,13 +41,15 @@ pool.connect((err) => {
 // --- PRODUCTOS ---
 
 // Obtener todos
+// 1. OBTENER TODOS LOS PRODUCTOS (Actualizado para traer proveedor)
 app.get('/productos', async (req, res) => {
   try {
-    const todosLosProductos = await pool.query('SELECT * FROM productos ORDER BY id ASC');
-    res.json(todosLosProductos.rows);
+    // Traemos todo (*) para incluir 'ultimo_proveedor'
+    const result = await pool.query('SELECT * FROM productos ORDER BY id ASC');
+    res.json(result.rows);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Error del servidor');
+    console.error(err);
+    res.status(500).send('Error al obtener productos');
   }
 });
 
@@ -612,7 +614,7 @@ app.post('/ingreso-masivo', async (req, res) => {
 });
 
 
-// 13. REGISTRAR INGRESO COMPLETO (NUEVO O EXISTENTE)
+// 13. REGISTRAR INGRESO COMPLETO (CON PROVEEDOR)
 app.post('/registrar-ingreso-completo', async (req, res) => {
   const { 
     esNuevo, id_producto, nombre, categoria, 
@@ -627,34 +629,30 @@ app.post('/registrar-ingreso-completo', async (req, res) => {
 
     let finalId = id_producto;
 
-    // 1. SI ES NUEVO: CREAR PRODUCTO
+    // 1. SI ES NUEVO
     if (esNuevo) {
-      // Generamos un SKU automático si es nuevo
       const skuAuto = nombre.substring(0, 3).toUpperCase() + '-' + Math.floor(Math.random() * 10000);
-      
       const resInsert = await client.query(
-        `INSERT INTO productos (nombre, sku, categoria, precio_costo, stock_actual) 
-         VALUES ($1, $2, $3, $4, 0) RETURNING id`, // Iniciamos stock en 0 para sumarlo después
-        [nombre, skuAuto, categoria || 'General', precio_unitario]
+        `INSERT INTO productos (nombre, sku, categoria, precio_costo, stock_actual, ultimo_proveedor) 
+         VALUES ($1, $2, $3, $4, 0, $5) RETURNING id`,
+        [nombre, skuAuto, categoria || 'General', precio_unitario, proveedor]
       );
       finalId = resInsert.rows[0].id;
     } else {
-      // 2. SI EXISTE: ACTUALIZAR PRECIO COSTO (Al más reciente)
+      // 2. SI EXISTE: Actualizamos precio y proveedor
       await client.query(
-        `UPDATE productos SET precio_costo = $1 WHERE id = $2`,
-        [precio_unitario, finalId]
+        `UPDATE productos SET precio_costo = $1, ultimo_proveedor = $2 WHERE id = $3`,
+        [precio_unitario, proveedor, finalId]
       );
     }
 
-    // 3. ACTUALIZAR STOCK (Sumar)
+    // 3. ACTUALIZAR STOCK
     await client.query(
       `UPDATE productos SET stock_actual = stock_actual + $1 WHERE id = $2`,
       [cantidad, finalId]
     );
 
-    // 4. REGISTRAR MOVIMIENTO (Historial)
-    // Guardamos proveedor y receptor en campos genéricos o concatenados si no tienes columnas específicas
-    // Para simplificar, asumimos que el historial guarda la transacción base.
+    // 4. REGISTRAR EN HISTORIAL
     await client.query(
       `INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, id_obra) 
        VALUES ($1, 'ENTRADA', $2, $3, NULL)`,
@@ -662,7 +660,7 @@ app.post('/registrar-ingreso-completo', async (req, res) => {
     );
 
     await client.query('COMMIT');
-    res.json({ success: true, message: 'Ingreso registrado correctamente' });
+    res.json({ success: true, message: 'Ingreso guardado con proveedor' });
 
   } catch (err) {
     await client.query('ROLLBACK');
