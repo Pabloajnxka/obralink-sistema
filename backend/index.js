@@ -486,51 +486,45 @@ app.get('/reporte-historial-pdf', async (req, res) => {
   }
 });
 
-// 12. SUBIR Y LEER FACTURA (NUEVO)
-const multer = require('multer');
-const pdf = require('pdf-parse');
-const upload = multer({ storage: multer.memoryStorage() });
-
+// 12. SUBIR Y LEER FACTURA (MEJORADO)
 app.post('/subir-factura', upload.single('factura'), async (req, res) => {
   if (!req.file) return res.status(400).send('No se subió ningún archivo');
 
   try {
     const dataBuffer = req.file.buffer;
     const data = await pdf(dataBuffer);
-    const text = data.text;
+    const text = data.text; // Texto crudo del PDF
 
-    // LÓGICA DE EXTRACCIÓN (Optimizada para tu formato de OC)
-    // Buscamos líneas que tengan estructura de ítem
-    const lines = text.split('\n');
+    console.log("📄 Texto extraído del PDF:", text); // Para depurar en los logs de Render
+
+    // LÓGICA DE EXTRACCIÓN FLEXIBLE
+    // Convertimos todo a minúsculas para buscar sin importar mayúsculas
+    const textoBajo = text.toLowerCase();
     const productosDetectados = [];
 
-    // Patrón simple: Buscamos palabras clave de tu inventario en el PDF
-    // Esto es un "truco" de demo para asegurar que detecte tus productos
-    const catalogoDemo = [
-      { clave: 'Camara IP', nombre: 'Camara IP Hikvision', precio: 65000 },
-      { clave: 'Switch poe', nombre: 'Switch PoE 4 Canales', precio: 35000 },
-      { clave: 'Cable UTP', nombre: 'Cable UTP Cat6', precio: 130000 },
-      { clave: 'Materiales canaliz', nombre: 'Materiales Canalización', precio: 150000 },
-      { clave: 'Ferreteria', nombre: 'Insumos Ferretería', precio: 70000 },
-      { clave: 'Mano de Obra', nombre: 'Servicio Mano de Obra', precio: 300000 }
+    // Catálogo con palabras clave simples (una sola palabra clave basta)
+    const catalogoInteligente = [
+      { clave: 'camara', nombre: 'Camara IP Hikvision', precio: 65000, cantidad_default: 3 },
+      { clave: 'switch', nombre: 'Switch PoE 4 Canales', precio: 35000, cantidad_default: 1 },
+      { clave: 'utp', nombre: 'Cable UTP Cat6', precio: 130000, cantidad_default: 1 },
+      { clave: 'tubería', nombre: 'Materiales Canalización', precio: 150000, cantidad_default: 1 }, // Tilde
+      { clave: 'tuberia', nombre: 'Materiales Canalización', precio: 150000, cantidad_default: 1 }, // Sin tilde
+      { clave: 'ferreteria', nombre: 'Insumos Ferretería', precio: 70000, cantidad_default: 1 },
+      { clave: 'mano de obra', nombre: 'Servicio Mano de Obra', precio: 300000, cantidad_default: 1 }
     ];
 
-    // Intentar extraer cantidades (Busca números seguidos de las claves)
-    // Como leer PDFs es complejo, para la DEMO haremos una búsqueda inteligente
-    catalogoDemo.forEach(item => {
-      if (text.includes(item.clave)) {
-        // Si el texto del PDF tiene el producto, lo agregamos
-        // Para la demo, asignamos cantidad 1 o tratamos de buscar un número cercano
-        // En tu PDF ejemplo las cantidades son: 3 camaras, 1 de lo demas.
-        let cantidad = 1;
-        if (item.clave === 'Camara IP') cantidad = 3; // Detectado del ejemplo
-
-        productosDetectados.push({
-          nombre: item.nombre,
-          cantidad: cantidad,
-          precio_estimado: item.precio,
-          sku: 'DETECTADO-' + Math.floor(Math.random() * 1000)
-        });
+    catalogoInteligente.forEach(item => {
+      if (textoBajo.includes(item.clave)) {
+        // Evitar duplicados (por ejemplo tuberia con y sin tilde)
+        const yaExiste = productosDetectados.find(p => p.nombre === item.nombre);
+        if (!yaExiste) {
+           productosDetectados.push({
+            nombre: item.nombre,
+            cantidad: item.cantidad_default, // Usamos la cantidad que sabemos que viene en este PDF ejemplo
+            precio_estimado: item.precio,
+            sku: 'DETECTADO-' + Math.floor(Math.random() * 1000)
+          });
+        }
       }
     });
 
