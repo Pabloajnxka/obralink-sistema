@@ -26,7 +26,6 @@ function App() {
   const [busquedaHistorial, setBusquedaHistorial] = useState('')
   const [filtroTipoHistorial, setFiltroTipoHistorial] = useState('TODOS')
 
-  // Estado para controlar qué obra estamos viendo en detalle
   const [obraSeleccionada, setObraSeleccionada] = useState(null)
 
   const [ingresoManual, setIngresoManual] = useState({
@@ -81,10 +80,14 @@ function App() {
     return coincideTexto && coincideTipo;
   })
 
+  // --- FILTRO DE OBRAS REALES (Excluye Bodega Central) ---
+  const obrasReales = obras.filter(o => o.nombre !== 'Bodega Central');
+
   const kpiTotalValor = materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0)
   const kpiTotalItems = materiales.length
   const kpiStockCritico = materiales.filter(m => m.stock_actual < 5).length
-  const kpiObrasActivas = obras.length
+  // Modificado: Ahora cuenta solo las obras reales
+  const kpiObrasActivas = obrasReales.length 
 
   useEffect(() => {
     const usuarioGuardado = localStorage.getItem('usuario_obralink');
@@ -122,8 +125,16 @@ function App() {
     try { 
       const rProd = await fetch(`${API_URL}/productos`); const dProd = await rProd.json(); setMateriales(dProd);
       const rObras = await fetch(`${API_URL}/obras`); const dObras = await rObras.json(); setObras(dObras);
-      if (dObras.length > 0 && !movimientoData.id_obra) { setMovimientoData(prev => ({...prev, id_obra: dObras[0].id})) }
-      // Siempre cargamos historial para poder filtrar los detalles de obra
+      
+      // Si la obra seleccionada por defecto es Bodega Central, intentamos cambiarla
+      if (dObras.length > 0) {
+         // Filtramos para que no autoseleccione Bodega Central
+         const obrasValidas = dObras.filter(o => o.nombre !== 'Bodega Central');
+         if (obrasValidas.length > 0 && !movimientoData.id_obra) {
+            setMovimientoData(prev => ({...prev, id_obra: obrasValidas[0].id}));
+         }
+      }
+
       const rHist = await fetch(`${API_URL}/movimientos`); const dHist = await rHist.json(); setHistorial(dHist); 
     } catch (e) { console.error("Error cargando datos:", e); } 
   }
@@ -259,7 +270,7 @@ function App() {
   const cambiarMenu = (nuevoMenu) => { 
       setMenuActivo(nuevoMenu); 
       setMenuMovilAbierto(false); 
-      setObraSeleccionada(null); // Reseteamos la selección al cambiar de menú
+      setObraSeleccionada(null); 
   }
   const calcularMaterialesEnObra = (obraId) => historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, item) => acc + parseInt(item.cantidad), 0);
 
@@ -332,6 +343,7 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <div className="bg-blue-600 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Almacén')}><div><h3 className="text-3xl font-bold">${kpiTotalValor.toLocaleString('es-CL')}</h3><p className="text-blue-100 text-xs font-bold uppercase mt-1">Inversión Stock</p></div></div>
                 <div className="bg-red-500 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Almacén')}><div><h3 className="text-3xl font-bold">{kpiStockCritico}</h3><p className="text-red-100 text-xs font-bold uppercase mt-1">Stock Crítico (!)</p></div></div>
+                {/* MODIFICADO: Muestra kpiObrasActivas sin bodega central */}
                 <div className="bg-orange-500 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Obras')}><div><h3 className="text-3xl font-bold">{kpiObrasActivas}</h3><p className="text-orange-100 text-xs font-bold uppercase mt-1">Obras Activas</p></div></div>
                 <div className="bg-green-600 text-white p-4 rounded shadow-lg h-32 flex flex-col justify-between cursor-pointer hover:scale-105 transition" onClick={()=>cambiarMenu('Ingresos')}><div><h3 className="text-3xl font-bold">{kpiTotalItems}</h3><p className="text-green-100 text-xs font-bold uppercase mt-1">Total Ítems</p></div></div>
               </div>
@@ -430,11 +442,17 @@ function App() {
              <div className="max-w-2xl mx-auto bg-white rounded shadow-lg border border-slate-200 overflow-hidden">
                 <div className="bg-red-600 p-6 text-white"><h2 className="text-xl md:text-2xl font-bold flex items-center gap-2"><IconoOut/> Registrar Salida</h2><p className="text-red-100 text-sm">Despacho de materiales hacia Obra</p></div>
                 <form onSubmit={(e) => registrarMovimiento(e, 'SALIDA')} className="p-6 md:p-8 space-y-6">
-                   <div><label className="block text-sm font-bold text-slate-600 mb-2">Destino (Obra)</label><select required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" value={movimientoData.id_obra} onChange={(e) => setMovimientoData({...movimientoData, id_obra: e.target.value})}><option value="">-- Seleccionar Obra --</option>{obras.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}</select></div>
+                   {/* MODIFICADO: Filtramos obrasReales para que no aparezca Bodega Central */}
+                   <div>
+                        <label className="block text-sm font-bold text-slate-600 mb-2">Destino (Obra)</label>
+                        <select required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" value={movimientoData.id_obra} onChange={(e) => setMovimientoData({...movimientoData, id_obra: e.target.value})}>
+                            <option value="">-- Seleccionar Obra --</option>
+                            {obrasReales.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}
+                        </select>
+                   </div>
                    <div><label className="block text-sm font-bold text-slate-600 mb-2">Seleccionar Producto</label><select required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" onChange={(e) => setMovimientoData({...movimientoData, id_producto: e.target.value})}><option value="">-- Buscar en catálogo --</option>{materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (Disp: {m.stock_actual})</option>))}</select></div>
                    <div><label className="block text-sm font-bold text-slate-600 mb-2">Cantidad a Despachar</label><input type="number" required min="1" className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500 text-lg font-bold" value={movimientoData.cantidad} onChange={(e) => setMovimientoData({...movimientoData, cantidad: e.target.value})} /></div>
                    
-                   {/* NUEVOS INPUTS SALIDA */}
                    <div className="grid grid-cols-2 gap-4">
                       <div><label className="block text-sm font-bold text-slate-600 mb-2">Fecha del Despacho</label><input type="date" required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" value={movimientoData.fecha} onChange={(e) => setMovimientoData({...movimientoData, fecha: e.target.value})} /></div>
                       <div><label className="block text-sm font-bold text-slate-600 mb-2">Responsable / Quién Retira</label><input type="text" required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" placeholder="Nombre..." value={movimientoData.recibido_por} onChange={(e) => setMovimientoData({...movimientoData, recibido_por: e.target.value})} /></div>
@@ -515,10 +533,9 @@ function App() {
             </div>
           )}
 
-          {/* SECCIÓN OBRAS MODIFICADA: Ahora incluye VISTA DE DETALLE */}
           {menuActivo === 'Obras' && (
             <>
-              {/* VISTA 1: LISTADO DE OBRAS (Solo si NO hay obra seleccionada) */}
+              {/* VISTA 1: LISTADO DE OBRAS (Ahora FILTRADO sin Bodega Central) */}
               {!obraSeleccionada ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full content-start">
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-fit overflow-hidden">
@@ -531,33 +548,33 @@ function App() {
                     </form>
                   </div>
                   <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-min">
-                     {obras.map(o => (
-                       <div key={o.id} className={`bg-white p-5 rounded-xl shadow-sm border border-slate-200 relative group hover:shadow-md transition ${o.nombre === 'Bodega Central' ? 'border-l-4 border-l-blue-600' : 'border-l-4 border-l-orange-500'}`}>
+                     {/* MODIFICADO: Iteramos sobre obrasReales para NO mostrar Bodega Central */}
+                     {obrasReales.map(o => (
+                       <div key={o.id} className={`bg-white p-5 rounded-xl shadow-sm border border-slate-200 relative group hover:shadow-md transition border-l-4 border-l-orange-500`}>
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex items-center gap-3">
-                               <div className={`p-3 rounded-lg ${o.nombre === 'Bodega Central' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}><IconoBuilding /></div>
+                               <div className="p-3 rounded-lg bg-orange-100 text-orange-600"><IconoBuilding /></div>
                                <div><h3 className="font-bold text-slate-800 text-lg leading-tight">{o.nombre}</h3><p className="text-xs text-slate-500 font-medium uppercase mt-1">{o.cliente}</p></div>
                             </div>
-                            {o.nombre !== 'Bodega Central' && (<button onClick={() => eliminarObra(o.id, o.nombre)} className="text-slate-300 hover:text-red-500 transition"><IconoTrash /></button>)}
+                            <button onClick={() => eliminarObra(o.id, o.nombre)} className="text-slate-300 hover:text-red-500 transition"><IconoTrash /></button>
                           </div>
                           <div className="space-y-3">
                             <div className="bg-slate-50 p-3 rounded border border-slate-100 flex justify-between items-center"><span className="text-xs font-bold text-slate-500 uppercase">Estado</span><span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-full">● En Ejecución</span></div>
                             {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString()}</span></div>)}
-                            <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2"><span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1"><IconoBox/> {o.nombre === 'Bodega Central' ? 'Valor Materiales' : 'Materiales Recibidos'}</span><span className="text-lg font-bold text-slate-800">{o.nombre === 'Bodega Central' ? `$${materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0).toLocaleString('es-CL')}` : <span>{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span>}</span></div>
+                            <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-2 mt-2"><span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1"><IconoBox/> Materiales Recibidos</span><span className="text-lg font-bold text-slate-800">{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span></div>
                             
-                            {/* BOTÓN NUEVO: VER DETALLES */}
-                            {o.nombre !== 'Bodega Central' && (
-                                <button onClick={() => setObraSeleccionada(o)} className="w-full mt-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded transition">
-                                    VER MATERIALES EN OBRA
-                                </button>
-                            )}
+                            <button onClick={() => setObraSeleccionada(o)} className="w-full mt-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded transition">
+                                VER MATERIALES EN OBRA
+                            </button>
                           </div>
                        </div>
                      ))}
+                     {obrasReales.length === 0 && (
+                        <div className="col-span-full text-center py-10 text-slate-400 italic">No hay proyectos activos. ¡Crea uno nuevo!</div>
+                     )}
                   </div>
                 </div>
               ) : (
-                /* VISTA 2: DETALLE DE LA OBRA (Se muestra cuando obraSeleccionada tiene datos) */
                 <div className="bg-white rounded shadow-sm border border-slate-200 h-full flex flex-col">
                     <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
                         <div className="flex items-center gap-4">
