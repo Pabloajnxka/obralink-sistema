@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 
-// ==========================================
-// 1. IMPORTACIÓN DE ÍCONOS (Desde tu nuevo archivo)
-// ==========================================
+// IMPORTAMOS LOS ICONOS (Asegúrate de haber creado el archivo src/components/Icons.jsx)
 import { 
   IconoHome, IconoBox, IconoHistory, IconoBuilding, IconoIn, 
   IconoOut, IconoChart, IconoMail, IconoLock, IconoFilter, 
@@ -11,9 +9,6 @@ import {
 } from './components/Icons'
 
 function App() {
-  // ==========================================
-  // 2. CONFIGURACIÓN Y ESTADOS
-  // ==========================================
   const API_URL = 'https://obralink-sistema.onrender.com';
 
   const [usuarioLogueado, setUsuarioLogueado] = useState(null)
@@ -31,7 +26,6 @@ function App() {
   const [busquedaHistorial, setBusquedaHistorial] = useState('')
   const [filtroTipoHistorial, setFiltroTipoHistorial] = useState('TODOS')
 
-  // Estado para el ingreso manual completo
   const [ingresoManual, setIngresoManual] = useState({
     esNuevo: false,
     id_producto: '',
@@ -44,7 +38,6 @@ function App() {
     recibido_por: ''
   })
 
-  // Estado para Edición
   const [formulario, setFormulario] = useState({ 
     nombre: '', sku: '', precio_costo: '', categoria: '',
     proveedor: '', recibido_por: ''
@@ -53,7 +46,14 @@ function App() {
   const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false)
 
   const [formObra, setFormObra] = useState({ nombre: '', cliente: '', presupuesto: '' })
-  const [movimientoData, setMovimientoData] = useState({ id_producto: '', cantidad: '', id_obra: '' })
+  
+  // Modificado: Ahora incluye 'fecha'
+  const [movimientoData, setMovimientoData] = useState({ 
+    id_producto: '', 
+    cantidad: '', 
+    id_obra: '', 
+    fecha: new Date().toISOString().split('T')[0] 
+  })
   
   const [tabIngreso, setTabIngreso] = useState('MANUAL')
   const [productosFactura, setProductosFactura] = useState([])
@@ -62,16 +62,9 @@ function App() {
   const [menuActivo, setMenuActivo] = useState('Inicio')
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false) 
 
-  // --- CÁLCULO DE SUGERENCIAS ÚNICAS ---
   const categoriasUnicas = [...new Set(materiales.map(m => m.categoria || 'Sin Categoría'))]
   const proveedoresUnicos = [...new Set(materiales.map(m => m.ultimo_proveedor || '').filter(p => p !== ''))]
   
-  const statsPorCategoria = materiales.reduce((acc, curr) => {
-    const cat = curr.categoria || 'General';
-    acc[cat] = (acc[cat] || 0) + 1;
-    return acc;
-  }, {});
-
   const materialesFiltrados = materiales.filter(m => {
     const coincideBusqueda = m.nombre.toLowerCase().includes(busqueda.toLowerCase()) || m.sku.toLowerCase().includes(busqueda.toLowerCase())
     const coincideCategoria = filtroCategoria === '' || m.categoria === filtroCategoria
@@ -98,10 +91,6 @@ function App() {
       setRolUsuario(rolGuardado);
     }
   }, []);
-
-  // ==========================================
-  // 3. FUNCIONES DE CONEXIÓN
-  // ==========================================
 
   const manejarLogin = async (e) => { 
     e.preventDefault(); 
@@ -137,19 +126,15 @@ function App() {
     } catch (e) { console.error("Error cargando datos:", e); } 
   }
 
-  // --- LÓGICA DE INGRESO MANUAL CORREGIDA ---
   const registrarIngresoCompleto = async (e) => {
     e.preventDefault();
     if (ingresoManual.esNuevo && !ingresoManual.nombre_nuevo) return alert("⚠️ Falta el nombre del producto nuevo");
     if (!ingresoManual.esNuevo && !ingresoManual.id_producto) return alert("⚠️ Selecciona un producto existente");
     if (!ingresoManual.cantidad || !ingresoManual.precio_unitario) return alert("⚠️ Faltan datos numéricos");
 
-    // AQUÍ ESTÁ LA SOLUCIÓN DEFINITIVA:
-    // Mapeamos explícitamente "nombre_nuevo" a "nombre" para que el backend lo reciba bien
     const payload = {
         esNuevo: ingresoManual.esNuevo,
         id_producto: ingresoManual.id_producto,
-        // ESTO EVITA EL ERROR "UNDEFINED SUBSTRING":
         nombre: ingresoManual.esNuevo ? ingresoManual.nombre_nuevo : '', 
         categoria: ingresoManual.categoria,
         cantidad: ingresoManual.cantidad,
@@ -164,7 +149,6 @@ function App() {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
         const d = await r.json();
-        
         if(d.success) {
             alert("✅ Ingreso registrado con éxito");
             setIngresoManual({ ...ingresoManual, nombre_nuevo: '', cantidad: '', precio_unitario: '', proveedor: '', recibido_por: '' });
@@ -173,19 +157,6 @@ function App() {
             alert("❌ Error al registrar: " + (d.error || "Error desconocido en servidor"));
         }
     } catch (e) { alert("Error de conexión: " + e.message); }
-  }
-
-  const abrirEdicion = (prod) => {
-     setFormulario({ 
-         nombre: prod.nombre, 
-         sku: prod.sku, 
-         precio_costo: prod.precio_costo, 
-         categoria: prod.categoria,
-         proveedor: prod.ultimo_proveedor || '', 
-         recibido_por: ''
-     });
-     setIdEditando(prod.id);
-     setMostrarModalEdicion(true);
   }
 
   const guardarEdicion = async (e) => { 
@@ -211,7 +182,19 @@ function App() {
     if (!movimientoData.id_producto || !movimientoData.cantidad) return alert("Por favor complete los datos");
     let obraFinal = null;
     if (tipo === 'SALIDA') { if(!movimientoData.id_obra) return alert("Debe seleccionar una obra de destino"); obraFinal = movimientoData.id_obra; }
-    await fetch(`${API_URL}/movimientos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_producto: movimientoData.id_producto, tipo: tipo, cantidad: movimientoData.cantidad, id_obra: obraFinal }) }); 
+    
+    // Modificado: Ahora envía 'fecha'
+    await fetch(`${API_URL}/movimientos`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+            id_producto: movimientoData.id_producto, 
+            tipo: tipo, 
+            cantidad: movimientoData.cantidad, 
+            id_obra: obraFinal,
+            fecha: movimientoData.fecha 
+        }) 
+    }); 
     setMovimientoData({ ...movimientoData, cantidad: '' }); obtenerDatos();
     alert(tipo === 'ENTRADA' ? "✅ Ingreso a bodega registrado" : "🚀 Despacho a obra registrado");
   }
@@ -227,7 +210,7 @@ function App() {
       if (!r.ok) throw new Error(`Error: ${r.statusText}`);
       const d = await r.json();
       if (d.success) {
-        d.productos.length === 0 ? alert("⚠️ No se detectaron productos. El sistema buscó filas con el formato de tu Orden de Compra.") : setProductosFactura(d.productos);
+        d.productos.length === 0 ? alert("⚠️ No se detectaron productos.") : setProductosFactura(d.productos);
       } else { alert("❌ Error leyendo factura."); }
     } catch (error) { alert(`Error de conexión: ${error.message}`); } 
     finally { setCargandoFactura(false); e.target.value = null; }
@@ -248,7 +231,7 @@ function App() {
     }
   }
   const eliminarMovimiento = async (id) => {
-    if (window.confirm(`¿Eliminar registro?`)) {
+    if (window.confirm(`¿Anular registro y REVERTIR stock?`)) {
       try { await fetch(`${API_URL}/movimientos/${id}`, { method: 'DELETE' }); obtenerDatos(); } catch (e) { alert("Error al eliminar"); }
     }
   }
@@ -259,14 +242,22 @@ function App() {
   }
   
   const manejarInput = (e) => setFormulario({ ...formulario, [e.target.name]: e.target.value })
+  const abrirEdicion = (prod) => {
+    setFormulario({ 
+        nombre: prod.nombre, 
+        sku: prod.sku, 
+        precio_costo: prod.precio_costo, 
+        categoria: prod.categoria,
+        proveedor: prod.ultimo_proveedor || '', 
+        recibido_por: ''
+    });
+    setIdEditando(prod.id);
+    setMostrarModalEdicion(true);
+ }
   const cambiarMenu = (nuevoMenu) => { setMenuActivo(nuevoMenu); setMenuMovilAbierto(false); }
   const calcularMaterialesEnObra = (obraId) => historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, item) => acc + parseInt(item.cantidad), 0);
 
   useEffect(() => { if(usuarioLogueado) obtenerDatos() }, [usuarioLogueado, menuActivo])
-
-  // ==========================================
-  // 4. RENDERIZADO (VISUAL)
-  // ==========================================
 
   if (!usuarioLogueado) {
     return (
@@ -327,14 +318,8 @@ function App() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-100 pb-20 md:pb-6">
-          
-          {/* DEFINICIÓN DE LISTAS DE AUTOGUARDADO */}
-          <datalist id="lista-categorias">
-            {categoriasUnicas.map((cat, i) => <option key={i} value={cat} />)}
-          </datalist>
-          <datalist id="lista-proveedores">
-            {proveedoresUnicos.map((prov, i) => <option key={i} value={prov} />)}
-          </datalist>
+          <datalist id="lista-categorias">{categoriasUnicas.map((cat, i) => <option key={i} value={cat} />)}</datalist>
+          <datalist id="lista-proveedores">{proveedoresUnicos.map((prov, i) => <option key={i} value={prov} />)}</datalist>
 
           {menuActivo === 'Inicio' && (
             <div className="space-y-6">
@@ -369,12 +354,10 @@ function App() {
 
                 {tabIngreso === 'MANUAL' ? (
                   <form onSubmit={registrarIngresoCompleto} className="p-6 md:p-8 space-y-4">
-                     {/* SWITCH NUEVO / EXISTENTE */}
                      <div className="flex items-center gap-2 mb-4 bg-slate-100 p-3 rounded">
                         <input type="checkbox" id="esNuevo" className="w-5 h-5 accent-green-600" checked={ingresoManual.esNuevo} onChange={(e) => setIngresoManual({...ingresoManual, esNuevo: e.target.checked})} />
                         <label htmlFor="esNuevo" className="font-bold text-slate-700 cursor-pointer">¿Es un Producto Nuevo?</label>
                      </div>
-
                      {ingresoManual.esNuevo ? (
                         <div className="grid grid-cols-2 gap-4">
                             <div><label className="text-xs font-bold text-slate-500">Nombre del Producto *</label><input required className="w-full border p-2 rounded" type="text" placeholder="Ej: Martillo" value={ingresoManual.nombre_nuevo} onChange={e=>setIngresoManual({...ingresoManual, nombre_nuevo: e.target.value})} /></div>
@@ -392,30 +375,25 @@ function App() {
                             </select>
                         </div>
                      )}
-
                      <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs font-bold text-slate-500">Fecha *</label><input required className="w-full border p-2 rounded" type="date" value={ingresoManual.fecha} onChange={e=>setIngresoManual({...ingresoManual, fecha: e.target.value})} /></div>
+                        <div><label className="text-xs font-bold text-slate-500">Fecha Real del Ingreso *</label><input required className="w-full border p-2 rounded" type="date" value={ingresoManual.fecha} onChange={e=>setIngresoManual({...ingresoManual, fecha: e.target.value})} /></div>
                         <div>
                             <label className="text-xs font-bold text-slate-500">Empresa / Proveedor</label>
                             <input className="w-full border p-2 rounded" type="text" placeholder="Ej: Sodimac" list="lista-proveedores" value={ingresoManual.proveedor} onChange={e=>setIngresoManual({...ingresoManual, proveedor: e.target.value})} />
                         </div>
                      </div>
-
                      <div className="grid grid-cols-2 gap-4">
                         <div><label className="text-xs font-bold text-slate-500">Cantidad *</label><input required className="w-full border p-2 rounded font-bold text-lg" type="number" min="1" placeholder="0" value={ingresoManual.cantidad} onChange={e=>setIngresoManual({...ingresoManual, cantidad: e.target.value})} /></div>
                         <div><label className="text-xs font-bold text-slate-500">Precio Unitario ($) *</label><input required className="w-full border p-2 rounded font-bold text-lg" type="number" min="0" placeholder="0" value={ingresoManual.precio_unitario} onChange={e=>setIngresoManual({...ingresoManual, precio_unitario: e.target.value})} /></div>
                      </div>
-
                      <div>
                         <label className="text-xs font-bold text-slate-500">Recibido Por</label>
                         <input className="w-full border p-2 rounded" type="text" placeholder="Nombre del responsable" value={ingresoManual.recibido_por} onChange={e=>setIngresoManual({...ingresoManual, recibido_por: e.target.value})} />
                      </div>
-
                      <div className="bg-slate-50 p-4 rounded text-right border border-slate-200">
                         <span className="text-sm text-slate-500 font-bold block">PRECIO TOTAL ESTIMADO</span>
                         <span className="text-2xl font-bold text-slate-800">${((ingresoManual.cantidad || 0) * (ingresoManual.precio_unitario || 0)).toLocaleString('es-CL')}</span>
                      </div>
-
                      <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded text-lg transition shadow-lg">CONFIRMAR INGRESO</button>
                   </form>
                 ) : (
@@ -449,6 +427,8 @@ function App() {
                    <div><label className="block text-sm font-bold text-slate-600 mb-2">Destino (Obra)</label><select required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" value={movimientoData.id_obra} onChange={(e) => setMovimientoData({...movimientoData, id_obra: e.target.value})}><option value="">-- Seleccionar Obra --</option>{obras.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}</select></div>
                    <div><label className="block text-sm font-bold text-slate-600 mb-2">Seleccionar Producto</label><select required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" onChange={(e) => setMovimientoData({...movimientoData, id_producto: e.target.value})}><option value="">-- Buscar en catálogo --</option>{materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (Disp: {m.stock_actual})</option>))}</select></div>
                    <div><label className="block text-sm font-bold text-slate-600 mb-2">Cantidad a Despachar</label><input type="number" required min="1" className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500 text-lg font-bold" value={movimientoData.cantidad} onChange={(e) => setMovimientoData({...movimientoData, cantidad: e.target.value})} /></div>
+                   {/* NUEVO: Input de fecha para salida */}
+                   <div><label className="block text-sm font-bold text-slate-600 mb-2">Fecha del Despacho</label><input type="date" required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" value={movimientoData.fecha} onChange={(e) => setMovimientoData({...movimientoData, fecha: e.target.value})} /></div>
                    <button className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded text-lg transition shadow-lg">CONFIRMAR SALIDA</button>
                 </form>
              </div>
@@ -463,7 +443,6 @@ function App() {
                 </div>
                 
                 <div className="bg-white rounded shadow-sm border border-slate-200 h-fit relative">
-                    {/* MODAL DE EDICIÓN MEJORADO */}
                     {mostrarModalEdicion && (
                         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                             <div className="bg-white p-6 rounded-xl shadow-2xl border border-slate-300 w-full max-w-lg overflow-y-auto max-h-[90vh]">
@@ -472,27 +451,15 @@ function App() {
                                     <div><label className="text-xs font-bold text-slate-500">Nombre del Producto</label><input className="w-full border p-2 rounded" value={formulario.nombre} onChange={manejarInput} name="nombre" /></div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div><label className="text-xs font-bold text-slate-500">SKU</label><input className="w-full border p-2 rounded bg-slate-50" value={formulario.sku} onChange={manejarInput} name="sku" /></div>
-                                        <div>
-                                            <label className="text-xs font-bold text-slate-500">Categoría</label>
-                                            <input className="w-full border p-2 rounded" value={formulario.categoria} onChange={manejarInput} name="categoria" list="lista-categorias" />
-                                        </div>
+                                        <div><label className="text-xs font-bold text-slate-500">Categoría</label><input className="w-full border p-2 rounded" value={formulario.categoria} onChange={manejarInput} name="categoria" list="lista-categorias" /></div>
                                     </div>
-                                    
                                     {rolUsuario === 'ADMIN' && (
-                                       <div className="bg-blue-50 p-3 rounded border border-blue-100">
-                                          <label className="text-xs font-bold text-blue-600 block mb-1">Precio Costo Unitario ($)</label>
-                                          <input className="w-full border border-blue-200 p-2 rounded font-bold text-lg" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" />
-                                       </div>
+                                       <div className="bg-blue-50 p-3 rounded border border-blue-100"><label className="text-xs font-bold text-blue-600 block mb-1">Precio Costo Unitario ($)</label><input className="w-full border border-blue-200 p-2 rounded font-bold text-lg" type="number" value={formulario.precio_costo} onChange={manejarInput} name="precio_costo" /></div>
                                     )}
-
                                     <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                                        <div>
-                                            <label className="text-xs font-bold text-slate-500">Proveedor (Último)</label>
-                                            <input className="w-full border p-2 rounded" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" list="lista-proveedores" />
-                                        </div>
+                                        <div><label className="text-xs font-bold text-slate-500">Proveedor (Último)</label><input className="w-full border p-2 rounded" placeholder="Ej: Sodimac" value={formulario.proveedor} onChange={manejarInput} name="proveedor" list="lista-proveedores" /></div>
                                         <div><label className="text-xs font-bold text-slate-500">Recibido Por</label><input className="w-full border p-2 rounded" placeholder="Nombre" value={formulario.recibido_por} onChange={manejarInput} name="recibido_por" /></div>
                                     </div>
-
                                     <div className="flex gap-2 mt-6">
                                         <button type="button" onClick={() => setMostrarModalEdicion(false)} className="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded font-bold transition">Cancelar</button>
                                         <button className="w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded font-bold shadow transition">Guardar Cambios</button>
@@ -581,11 +548,28 @@ function App() {
                 </div>
                 <div className="overflow-auto flex-1">
                   <table className="w-full text-sm text-left min-w-[600px]">
-                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b sticky top-0"><tr><th className="px-4 py-3">Fecha/Hora</th><th className="px-4 py-3">Producto</th><th className="px-4 py-3 text-center">Tipo</th><th className="px-4 py-3 text-center">Cantidad</th><th className="px-4 py-3">Origen / Destino</th><th className="px-4 py-3 text-center">Acciones</th></tr></thead>
+                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b sticky top-0">
+                        <tr>
+                            <th className="px-4 py-3">Fecha Evento</th>
+                            <th className="px-4 py-3">Cargado En</th>
+                            <th className="px-4 py-3">Producto</th>
+                            <th className="px-4 py-3 text-center">Tipo</th>
+                            <th className="px-4 py-3 text-center">Cantidad</th>
+                            <th className="px-4 py-3">Origen / Destino</th>
+                            <th className="px-4 py-3 text-center">Acciones</th>
+                        </tr>
+                    </thead>
                     <tbody className="divide-y divide-slate-100">
                       {historialFiltrado.map((mov, i) => (
                         <tr key={i} className="hover:bg-slate-50 transition">
-                          <td className="px-4 py-3 text-slate-500 font-mono text-xs whitespace-nowrap">{new Date(mov.fecha).toLocaleDateString()} <span className="text-slate-400">{new Date(mov.fecha).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></td>
+                          {/* Fecha del evento REAL */}
+                          <td className="px-4 py-3 text-slate-700 font-bold text-xs whitespace-nowrap">{new Date(mov.fecha).toLocaleDateString()}</td>
+                          
+                          {/* Fecha de carga en SISTEMA */}
+                          <td className="px-4 py-3 text-slate-400 font-mono text-[10px] whitespace-nowrap">
+                             {mov.fecha_registro ? new Date(mov.fecha_registro).toLocaleString() : '-'}
+                          </td>
+
                           <td className="px-4 py-3 font-medium text-slate-700">{mov.nombre} <span className="block text-xs text-slate-400 font-normal">{mov.sku}</span></td>
                           <td className="px-4 py-3 text-center"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${mov.tipo === 'ENTRADA' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{mov.tipo}</span></td>
                           <td className="px-4 py-3 text-center font-bold text-slate-700 text-lg">{mov.cantidad}</td>
@@ -593,7 +577,7 @@ function App() {
                           <td className="px-4 py-3 text-center"><button onClick={() => eliminarMovimiento(mov.id)} className="text-slate-400 hover:text-red-600 transition p-1 rounded hover:bg-red-50"><IconoTrash /></button></td>
                         </tr>
                       ))}
-                      {historialFiltrado.length === 0 && (<tr><td colSpan="6" className="text-center py-12 text-slate-400 italic">No se encontraron movimientos que coincidan con la búsqueda.</td></tr>)}
+                      {historialFiltrado.length === 0 && (<tr><td colSpan="7" className="text-center py-12 text-slate-400 italic">No se encontraron movimientos que coincidan con la búsqueda.</td></tr>)}
                     </tbody>
                   </table>
                 </div>

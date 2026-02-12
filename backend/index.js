@@ -23,21 +23,23 @@ const pool = new Pool({
 // ==========================================
 // 🔧 AUTO-REPARACIÓN DE BASE DE DATOS
 // ==========================================
-// Se ejecuta automáticamente al iniciar el servidor
 const iniciarBaseDeDatos = async () => {
   try {
     const client = await pool.connect();
     console.log("🔧 Verificando estructura de la Base de Datos...");
 
-    // Crear tablas si no existen
+    // Tablas base
     await client.query(`CREATE TABLE IF NOT EXISTS productos (id SERIAL PRIMARY KEY, nombre VARCHAR(255) NOT NULL, sku VARCHAR(100) UNIQUE NOT NULL, categoria VARCHAR(100), precio_costo INTEGER DEFAULT 0, precio_venta INTEGER DEFAULT 0, stock_actual INTEGER DEFAULT 0);`);
     await client.query(`CREATE TABLE IF NOT EXISTS obras (id SERIAL PRIMARY KEY, nombre VARCHAR(255) NOT NULL, cliente VARCHAR(255), presupuesto INTEGER DEFAULT 0);`);
     await client.query(`CREATE TABLE IF NOT EXISTS movimientos (id SERIAL PRIMARY KEY, id_producto INTEGER REFERENCES productos(id) ON DELETE CASCADE, tipo VARCHAR(50), cantidad INTEGER, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP, id_obra INTEGER, nombre_obra VARCHAR(255));`);
 
-    // AGREGAR COLUMNAS FALTANTES (Esto soluciona tu error "Error al registrar")
+    // Columnas extra (Migraciones)
     await client.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS ultimo_proveedor VARCHAR(255)");
     await client.query("ALTER TABLE movimientos ADD COLUMN IF NOT EXISTS recibido_por VARCHAR(255)");
     await client.query("ALTER TABLE movimientos ADD COLUMN IF NOT EXISTS proveedor VARCHAR(255)");
+    
+    // NUEVO: Columna para auditoría (Fecha real de carga vs Fecha del evento)
+    await client.query("ALTER TABLE movimientos ADD COLUMN IF NOT EXISTS fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
 
     console.log("✅ Base de datos lista y actualizada.");
     client.release();
@@ -48,23 +50,7 @@ const iniciarBaseDeDatos = async () => {
 iniciarBaseDeDatos();
 
 // ==========================================
-// 2. RUTAS DE MANTENIMIENTO
-// ==========================================
-app.get('/fix-db', async (req, res) => {
-  try {
-    const client = await pool.connect();
-    await client.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS ultimo_proveedor VARCHAR(255)");
-    await client.query("ALTER TABLE movimientos ADD COLUMN IF NOT EXISTS recibido_por VARCHAR(255)");
-    await client.query("ALTER TABLE movimientos ADD COLUMN IF NOT EXISTS proveedor VARCHAR(255)");
-    client.release();
-    res.send("✅ ¡Base de datos reparada manualmente! Intenta registrar ahora.");
-  } catch (err) {
-    res.status(500).send(`❌ Error reparando DB: ${err.message}`);
-  }
-});
-
-// ==========================================
-// 3. RUTAS DEL SISTEMA (PRODUCTOS, OBRAS, MOVIMIENTOS)
+// 2. RUTAS DEL SISTEMA (PRODUCTOS, OBRAS)
 // ==========================================
 
 // --- PRODUCTOS ---
@@ -107,16 +93,7 @@ app.delete('/productos/:id', async (req, res) => {
   } catch (err) { res.status(500).send('Error al eliminar producto'); }
 });
 
-// --- MOVIMIENTOS ---
-app.post('/movimientos', async (req, res) => {
-  const { id_producto, tipo, cantidad, id_obra } = req.body; 
-  try {
-    await pool.query("INSERT INTO movimientos (id_producto, tipo, cantidad, id_obra) VALUES ($1, $2, $3, $4)", [id_producto, tipo, cantidad, id_obra]);
-    const operacion = tipo === 'ENTRADA' ? '+' : '-';
-    await pool.query(`UPDATE productos SET stock_actual = stock_actual ${operacion} $1 WHERE id = $2`, [cantidad, id_producto]);
-    res.json({ mensaje: "Stock actualizado correctamente" });
-  } catch (err) { res.status(500).send('Error al actualizar stock'); }
-});
+// --- MOVIMIENTOS Y STOCK (LÓGICA MEJORADA) ---
 
 app.get('/movimientos', async (req, res) => {
   try {
@@ -125,19 +102,78 @@ app.get('/movimientos', async (req, res) => {
       FROM movimientos m
       JOIN productos p ON m.id_producto = p.id
       LEFT JOIN obras o ON m.id_obra = o.id
-      ORDER BY m.fecha DESC
+      ORDER BY m.fecha DESC, m.fecha_registro DESC
     `;
     const resultado = await pool.query(query);
     res.json(resultado.rows);
   } catch (err) { res.status(500).send('Error al obtener historial'); }
 });
 
+// Registrar SALIDA (Con fecha manual)
+app.post('/movimientos', async (req, res) => {
+  const { id_producto, tipo, cantidad, id_obra, fecha } = req.body; 
+  try {
+    // Usamos la fecha manual si viene, si no, usa NOW(). fecha_registro SIEMPRE es NOW()
+    const fechaEvento = fecha || new Date();
+
+    await pool.query(
+        "INSERT INTO movimientos (id_producto, tipo, cantidad, id_obra, fecha, fecha_registro) VALUES ($1, $2, $3, $4, $5, NOW())", 
+        [id_producto, tipo, cantidad, id_obra, fechaEvento]
+    );
+    
+    const operacion = tipo === 'ENTRADA' ? '+' : '-';
+    await pool.query(`UPDATE productos SET stock_actual = stock_actual ${operacion} $1 WHERE id = $2`, [cantidad, id_producto]);
+    res.json({ mensaje: "Stock actualizado correctamente" });
+  } catch (err) { res.status(500).send('Error al actualizar stock'); }
+});
+
+// 🔄 ELIMINAR MOVIMIENTO (CON REVERSIÓN DE STOCK) - CRÍTICO
 app.delete('/movimientos/:id', async (req, res) => {
   const { id } = req.params;
+  const client = await pool.connect();
+
   try {
-    await pool.query('DELETE FROM movimientos WHERE id = $1', [id]);
-    res.json({ mensaje: "Registro de historial eliminado" });
-  } catch (err) { res.status(500).send('Error al eliminar movimiento'); }
+    await client.query('BEGIN'); // Transacción segura
+
+    // 1. Obtener detalles
+    const resMov = await client.query('SELECT * FROM movimientos WHERE id = $1', [id]);
+    if (resMov.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: "Movimiento no encontrado" });
+    }
+
+    const movimiento = resMov.rows[0];
+    const { id_producto, tipo, cantidad } = movimiento;
+
+    // 2. Calcular reversión
+    let ajusteStock = 0;
+    if (tipo === 'ENTRADA') {
+      ajusteStock = -cantidad; // Si entró, restamos
+    } else if (tipo === 'SALIDA') {
+      ajusteStock = cantidad;  // Si salió, devolvemos (sumamos)
+    }
+
+    // 3. Ajustar Stock
+    if (id_producto) {
+      await client.query(
+        'UPDATE productos SET stock_actual = stock_actual + $1 WHERE id = $2',
+        [ajusteStock, id_producto]
+      );
+    }
+
+    // 4. Borrar registro
+    await client.query('DELETE FROM movimientos WHERE id = $1', [id]);
+
+    await client.query('COMMIT');
+    res.json({ mensaje: "Registro eliminado y stock corregido exitosamente." });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error("Error al anular movimiento:", err);
+    res.status(500).send('Error al anular el movimiento');
+  } finally {
+    client.release();
+  }
 });
 
 // --- OBRAS ---
@@ -179,8 +215,9 @@ app.post('/login', async (req, res) => {
 });
 
 // ==========================================
-// 4. REPORTES PDF
+// 3. FUNCIONES AVANZADAS E INFORMES
 // ==========================================
+
 app.get('/reporte-pdf', async (req, res) => {
   try {
     const { busqueda, categoria } = req.query; 
@@ -211,27 +248,51 @@ app.get('/reporte-pdf', async (req, res) => {
   } catch (err) { res.status(500).send('Error PDF'); }
 });
 
-app.get('/reporte-historial-pdf', async (req, res) => {
-  const { busqueda, tipo } = req.query;
+// Registrar Ingreso Completo (Manual) con DOBLE FECHA
+app.post('/registrar-ingreso-completo', async (req, res) => {
+  const { esNuevo, id_producto, nombre, categoria, cantidad, precio_unitario, fecha, proveedor, recibido_por } = req.body;
+  const client = await pool.connect();
   try {
-    let query = `SELECT m.fecha, m.tipo, m.cantidad, p.nombre, p.sku FROM movimientos m JOIN productos p ON m.id_producto = p.id`;
-    const { rows } = await pool.query(query);
-    const doc = new PDFDocument({ margin: 30, size: 'A4' });
-    res.setHeader('Content-Type', 'application/pdf');
-    doc.pipe(res);
-    doc.fontSize(20).text('Historial', { align: 'center' });
-    rows.forEach(r => {
-        doc.fontSize(10).text(`${new Date(r.fecha).toLocaleDateString()} - ${r.tipo} - ${r.nombre} (${r.cantidad})`);
-    });
-    doc.end();
-  } catch (err) { res.status(500).send('Error PDF Historial'); }
+    await client.query('BEGIN');
+    let finalId = id_producto;
+
+    if (esNuevo) {
+      const nombreFinal = nombre || "Producto Sin Nombre"; 
+      const skuAuto = nombreFinal.substring(0, 3).toUpperCase() + '-' + Math.floor(Math.random() * 10000);
+      const resInsert = await client.query(
+        `INSERT INTO productos (nombre, sku, categoria, precio_costo, stock_actual, ultimo_proveedor) 
+         VALUES ($1, $2, $3, $4, 0, $5) RETURNING id`,
+        [nombreFinal, skuAuto, categoria || 'General', precio_unitario, proveedor]
+      );
+      finalId = resInsert.rows[0].id;
+    } else {
+      await client.query(
+        `UPDATE productos SET precio_costo = $1, ultimo_proveedor = $2 WHERE id = $3`,
+        [precio_unitario, proveedor, finalId]
+      );
+    }
+
+    await client.query(`UPDATE productos SET stock_actual = stock_actual + $1 WHERE id = $2`, [cantidad, finalId]);
+    
+    // Insertamos 'fecha' (manual) y 'fecha_registro' (NOW)
+    await client.query(
+      `INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, fecha_registro, id_obra, proveedor, recibido_por) 
+       VALUES ($1, 'ENTRADA', $2, $3, NOW(), NULL, $4, $5)`,
+      [finalId, cantidad, fecha || new Date(), proveedor, recibido_por]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
 });
 
-// ==========================================
-// 5. FUNCIONES AVANZADAS (FACTURAS E INGRESO MANUAL)
-// ==========================================
-
-// 12.A SUBIR Y LEER FACTURA (REGEX MEJORADO)
+// Subir Factura (Sin cambios)
 app.post('/subir-factura', upload.single('factura'), async (req, res) => {
   if (!req.file) return res.status(400).send('No se subió ningún archivo');
 
@@ -241,7 +302,6 @@ app.post('/subir-factura', upload.single('factura'), async (req, res) => {
     const text = data.text; 
 
     const productosDetectados = [];
-    // REGEX CAPAZ DE LEER TU PDF CON SALTOS DE LINEA
     const regexFila = /"(\d+)\s*"\s*,\s*"([^"]*)"\s*,\s*"([\s\S]*?)"\s*,\s*"(\d+)\s*"\s*,\s*"([\d\.]+,\d+)\s*"/g;
 
     let match;
@@ -261,21 +321,19 @@ app.post('/subir-factura', upload.single('factura'), async (req, res) => {
         });
       }
     }
-    console.log(`✅ PRODUCTOS ENCONTRADOS: ${productosDetectados.length}`);
     res.json({ success: true, productos: productosDetectados });
   } catch (err) {
-    console.error("Error PDF:", err);
     res.status(500).send('Error procesando factura');
   }
 });
 
-// 12.B INGRESO MASIVO (Desde Factura)
 app.post('/ingreso-masivo', async (req, res) => {
   const { productos } = req.body;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     for (const p of productos) {
+      // Nota: Si usas Promise.all aquí sería más rápido, pero así es seguro secuencial
       const checkRes = await client.query('SELECT id FROM productos WHERE nombre ILIKE $1', [p.nombre]);
       let idProducto;
       if (checkRes.rows.length > 0) {
@@ -288,56 +346,11 @@ app.post('/ingreso-masivo', async (req, res) => {
         );
         idProducto = insertRes.rows[0].id;
       }
-      await client.query('INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, proveedor) VALUES ($1, $2, $3, NOW(), $4)', [idProducto, 'ENTRADA', p.cantidad, 'Factura Importación']);
+      await client.query('INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, fecha_registro, proveedor) VALUES ($1, $2, $3, NOW(), NOW(), $4)', [idProducto, 'ENTRADA', p.cantidad, 'Factura Importación']);
     }
     await client.query('COMMIT');
     res.json({ success: true });
   } catch (e) { await client.query('ROLLBACK'); console.error(e); res.status(500).send('Error'); } finally { client.release(); }
-});
-
-// 13. REGISTRAR INGRESO COMPLETO (PROTEGIDO)
-app.post('/registrar-ingreso-completo', async (req, res) => {
-  const { esNuevo, id_producto, nombre, categoria, cantidad, precio_unitario, fecha, proveedor, recibido_por } = req.body;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    let finalId = id_producto;
-
-    if (esNuevo) {
-      // PROTECCIÓN: Si el nombre llega vacío, usamos un genérico para que NO explote
-      const nombreFinal = nombre || "Producto Sin Nombre"; 
-      
-      const skuAuto = nombreFinal.substring(0, 3).toUpperCase() + '-' + Math.floor(Math.random() * 10000);
-      
-      const resInsert = await client.query(
-        `INSERT INTO productos (nombre, sku, categoria, precio_costo, stock_actual, ultimo_proveedor) 
-         VALUES ($1, $2, $3, $4, 0, $5) RETURNING id`,
-        [nombreFinal, skuAuto, categoria || 'General', precio_unitario, proveedor]
-      );
-      finalId = resInsert.rows[0].id;
-    } else {
-      await client.query(
-        `UPDATE productos SET precio_costo = $1, ultimo_proveedor = $2 WHERE id = $3`,
-        [precio_unitario, proveedor, finalId]
-      );
-    }
-
-    await client.query(`UPDATE productos SET stock_actual = stock_actual + $1 WHERE id = $2`, [cantidad, finalId]);
-    await client.query(
-      `INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, id_obra, proveedor, recibido_por) 
-       VALUES ($1, 'ENTRADA', $2, $3, NULL, $4, $5)`,
-      [finalId, cantidad, fecha || new Date(), proveedor, recibido_por]
-    );
-
-    await client.query('COMMIT');
-    res.json({ success: true });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error(err);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    client.release();
-  }
 });
 
 const port = process.env.PORT || 3000;
