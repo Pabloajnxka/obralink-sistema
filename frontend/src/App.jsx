@@ -563,7 +563,10 @@ function App() {
                       {historialFiltrado.map((mov, i) => (
                         <tr key={i} className="hover:bg-slate-50 transition">
                           {/* Fecha del evento REAL */}
-                          <td className="px-4 py-3 text-slate-700 font-bold text-xs whitespace-nowrap">{new Date(mov.fecha).toLocaleDateString()}</td>
+                          {/* Fecha del evento REAL - Corregida con timeZone UTC */}
+                          <td className="px-4 py-3 text-slate-700 font-bold text-xs whitespace-nowrap">
+                            {new Date(mov.fecha).toLocaleDateString('es-CL', { timeZone: 'UTC' })}
+                          </td>
                           
                           {/* Fecha de carga en SISTEMA */}
                           <td className="px-4 py-3 text-slate-400 font-mono text-[10px] whitespace-nowrap">
