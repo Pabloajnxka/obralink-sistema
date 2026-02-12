@@ -491,59 +491,77 @@ app.get('/reporte-historial-pdf', async (req, res) => {
   }
 });
 
-// 12.A SUBIR Y LEER FACTURA (MODO REGEX AVANZADO)
+// 12.A SUBIR Y LEER FACTURA (MODO ROBUSTO - EXCEL STYLE)
 app.post('/subir-factura', upload.single('factura'), async (req, res) => {
   if (!req.file) return res.status(400).send('No se subió ningún archivo');
 
   try {
     const dataBuffer = req.file.buffer;
     const data = await pdf(dataBuffer);
-    const text = data.text; // Texto crudo
+    let text = data.text; 
 
-    console.log("📄 Analizando PDF...");
+    console.log("📄 PDF Cargado. Longitud texto:", text.length);
 
     const productosDetectados = [];
 
-    // EXPRESIÓN REGULAR MAESTRA
-    // Busca patrones exactos de tu tabla: "1","COD","Desc","Cant","Precio","Total"
-    // \s* permite espacios o saltos de línea (\n) entre medio, que es lo que estaba fallando antes.
-    const regexFila = /"(\d+)\s*"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"(\d+)\s*"\s*,\s*"([\d\.]+,\d+)\s*"/g;
+    // ESTRATEGIA: "DIVIDE Y VENCERÁS"
+    // 1. Unificamos los saltos de línea para que sea más fácil cortar
+    // El PDF trae filas separadas por "\r\n" o "\n"
+    const filas = text.split(/\n/); 
 
-    let match;
-    // Buscamos todas las coincidencias en el texto completo
-    while ((match = regexFila.exec(text)) !== null) {
-      // match[1] = Linea (1)
-      // match[2] = Código (PROC IVA)
-      // match[3] = Descripción (Camara IP...)
-      // match[4] = Cantidad (3)
-      // match[5] = Precio (65.000,00)
+    filas.forEach((filaRaw, index) => {
+      // Limpiamos espacios al inicio y final
+      let fila = filaRaw.trim();
 
-      const nombreLimpio = match[3].replace(/\n/g, '').trim(); // Quitar saltos de linea del nombre
-      const cantidad = parseInt(match[4].trim());
+      // TU FACTURA TIENE ESTE FORMATO EXACTO:
+      // "1","CODIGO","DESCRIPCION","CANTIDAD","PRECIO","TOTAL"
       
-      // Limpiar precio: "65.000,00" -> quitar puntos, quitar decimales -> 65000
-      const precioSucio = match[5].trim();
-      const precioLimpio = parseInt(precioSucio.replace(/\./g, '').split(',')[0]);
+      // Verificamos si la linea parece una fila de datos (empieza con comillas y número)
+      // Ojo: A veces el PDF rompe la linea, asi que buscamos patrones clave: ","
+      if (fila.includes('","')) {
+        
+        // "Truco": Quitamos la primera y última comilla para que quede limpio
+        // De: "1","COD","DESC"...  ---> A:  1","COD","DESC
+        if (fila.startsWith('"')) fila = fila.substring(1);
+        if (fila.endsWith('"')) fila = fila.substring(0, fila.length - 1);
 
-      if (nombreLimpio && !isNaN(cantidad)) {
-        productosDetectados.push({
-          sku: match[2].trim().replace(/\n/g, '') || 'GEN-001',
-          nombre: nombreLimpio,
-          cantidad: cantidad,
-          precio_costo: precioLimpio,
-          categoria: 'Importación' // Categoría por defecto
-        });
+        // AHORA CORTAMOS POR EL SEPARADOR CLAVE: ","
+        const columnas = fila.split('","');
+
+        // Tu factura tiene 6 columnas:
+        // [0] Linea, [1] Codigo, [2] Descripcion, [3] Cantidad, [4] Precio, [5] Total
+        if (columnas.length >= 5) {
+            const descripcion = columnas[2].replace(/\n/g, ' ').trim(); // Quitar enters raros del nombre
+            const cantidadTxt = columnas[3].replace(/\./g, '').trim(); // Quitar puntos de mil
+            const precioTxt = columnas[4].replace(/\./g, '').split(',')[0]; // "65.000,00" -> "65000"
+
+            const cantidad = parseInt(cantidadTxt);
+            const precio = parseInt(precioTxt);
+
+            // Validamos que sean números reales para no guardar basura
+            if (descripcion && !isNaN(cantidad) && !isNaN(precio)) {
+                productosDetectados.push({
+                    sku: columnas[1].trim() || 'NUEVO-001',
+                    nombre: descripcion,
+                    cantidad: cantidad,
+                    precio_costo: precio,
+                    categoria: 'Importación'
+                });
+            }
+        }
       }
-    }
+    });
 
-    console.log(`✅ Se detectaron ${productosDetectados.length} productos.`);
+    console.log(`✅ PRODUCTOS ENCONTRADOS: ${productosDetectados.length}`);
     res.json({ success: true, productos: productosDetectados });
 
   } catch (err) {
-    console.error("Error PDF:", err);
+    console.error("🔥 Error crítico leyendo PDF:", err);
     res.status(500).send('Error procesando factura');
   }
 });
+
+// Aseguŕate de mantener el endpoint /ingreso-masivo tal cual estaba, ese funcionaba bien.
 
 // 12.B INGRESO MASIVO (CREA PRODUCTOS SI NO EXISTEN)
 // (Asegúrate de tener este endpoint también en tu archivo)
