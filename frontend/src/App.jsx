@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-// IMPORTAMOS LOS ICONOS (Asegúrate de haber creado el archivo src/components/Icons.jsx)
+// IMPORTAMOS LOS ICONOS (Asegúrate de tener src/components/Icons.jsx)
 import { 
   IconoHome, IconoBox, IconoHistory, IconoBuilding, IconoIn, 
   IconoOut, IconoChart, IconoMail, IconoLock, IconoFilter, 
@@ -47,7 +47,6 @@ function App() {
 
   const [formObra, setFormObra] = useState({ nombre: '', cliente: '', presupuesto: '' })
   
-  // Modificado: Ahora incluye 'fecha'
   const [movimientoData, setMovimientoData] = useState({ 
     id_producto: '', 
     cantidad: '', 
@@ -183,7 +182,6 @@ function App() {
     let obraFinal = null;
     if (tipo === 'SALIDA') { if(!movimientoData.id_obra) return alert("Debe seleccionar una obra de destino"); obraFinal = movimientoData.id_obra; }
     
-    // Modificado: Ahora envía 'fecha'
     await fetch(`${API_URL}/movimientos`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
@@ -555,6 +553,8 @@ function App() {
                             <th className="px-4 py-3">Producto</th>
                             <th className="px-4 py-3 text-center">Tipo</th>
                             <th className="px-4 py-3 text-center">Cantidad</th>
+                            {/* COLUMNA NUEVA */}
+                            <th className="px-4 py-3">Responsable / Detalle</th> 
                             <th className="px-4 py-3">Origen / Destino</th>
                             <th className="px-4 py-3 text-center">Acciones</th>
                         </tr>
@@ -562,13 +562,8 @@ function App() {
                     <tbody className="divide-y divide-slate-100">
                       {historialFiltrado.map((mov, i) => (
                         <tr key={i} className="hover:bg-slate-50 transition">
-                          {/* Fecha del evento REAL */}
-                          {/* Fecha del evento REAL - Corregida con timeZone UTC */}
-                          <td className="px-4 py-3 text-slate-700 font-bold text-xs whitespace-nowrap">
-                            {new Date(mov.fecha).toLocaleDateString('es-CL', { timeZone: 'UTC' })}
-                          </td>
+                          <td className="px-4 py-3 text-slate-700 font-bold text-xs whitespace-nowrap">{new Date(mov.fecha).toLocaleDateString('es-CL', { timeZone: 'UTC' })}</td>
                           
-                          {/* Fecha de carga en SISTEMA */}
                           <td className="px-4 py-3 text-slate-400 font-mono text-[10px] whitespace-nowrap">
                              {mov.fecha_registro ? new Date(mov.fecha_registro).toLocaleString() : '-'}
                           </td>
@@ -576,11 +571,21 @@ function App() {
                           <td className="px-4 py-3 font-medium text-slate-700">{mov.nombre} <span className="block text-xs text-slate-400 font-normal">{mov.sku}</span></td>
                           <td className="px-4 py-3 text-center"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${mov.tipo === 'ENTRADA' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{mov.tipo}</span></td>
                           <td className="px-4 py-3 text-center font-bold text-slate-700 text-lg">{mov.cantidad}</td>
+                          
+                          {/* COLUMNA DE RESPONSABLE LOGICA MEJORADA */}
+                          <td className="px-4 py-3 text-sm">
+                             {mov.tipo === 'ENTRADA' ? (
+                                <span className="text-slate-500 block text-xs">Prov: <span className="font-bold text-slate-700">{mov.proveedor || 'No registrado'}</span></span>
+                             ) : (
+                                <span className="text-slate-500 block text-xs">Recibe: <span className="font-bold text-slate-700">{mov.recibido_por || 'No registrado'}</span></span>
+                             )}
+                          </td>
+
                           <td className="px-4 py-3 text-xs text-slate-600">{mov.tipo === 'SALIDA' ? (<span className="flex items-center gap-1 font-bold text-orange-600"><IconoBuilding className="w-3 h-3"/> {mov.nombre_obra || 'Obra Desconocida'}</span>) : (<span className="flex items-center gap-1 text-slate-400">🏢 Bodega Central</span>)}</td>
                           <td className="px-4 py-3 text-center"><button onClick={() => eliminarMovimiento(mov.id)} className="text-slate-400 hover:text-red-600 transition p-1 rounded hover:bg-red-50"><IconoTrash /></button></td>
                         </tr>
                       ))}
-                      {historialFiltrado.length === 0 && (<tr><td colSpan="7" className="text-center py-12 text-slate-400 italic">No se encontraron movimientos que coincidan con la búsqueda.</td></tr>)}
+                      {historialFiltrado.length === 0 && (<tr><td colSpan="8" className="text-center py-12 text-slate-400 italic">No se encontraron movimientos que coincidan con la búsqueda.</td></tr>)}
                     </tbody>
                   </table>
                 </div>
