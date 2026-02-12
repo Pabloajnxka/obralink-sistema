@@ -109,18 +109,19 @@ app.get('/movimientos', async (req, res) => {
   } catch (err) { res.status(500).send('Error al obtener historial'); }
 });
 
-// Registrar SALIDA (Con fecha manual)
-app.post('/movimientos', async (req, res) => {
-  const { id_producto, tipo, cantidad, id_obra, fecha } = req.body; 
-  try {
-    // Usamos la fecha manual si viene, si no, usa NOW(). fecha_registro SIEMPRE es NOW()    
-    const fechaEvento = fecha ? new Date(fecha) : new Date();
+// ... (código anterior igual)
 
-    console.log("Fecha evento:", fechaEvento)
-    
-      await pool.query(
-        "INSERT INTO movimientos (id_producto, tipo, cantidad, id_obra, fecha, fecha_registro) VALUES ($1, $2, $3, $4, $5, NOW())", 
-        [id_producto, tipo, cantidad, id_obra, fechaEvento]
+// Registrar SALIDA (Con fecha manual y RESPONSABLE)
+app.post('/movimientos', async (req, res) => {
+  // AHORA RECIBIMOS 'recibido_por'
+  const { id_producto, tipo, cantidad, id_obra, fecha, recibido_por } = req.body; 
+  try {
+    const fechaEvento = fecha || new Date();
+
+    // INSERTAMOS EL NOMBRE DE QUIEN RETIRA EN 'recibido_por'
+    await pool.query(
+        "INSERT INTO movimientos (id_producto, tipo, cantidad, id_obra, fecha, fecha_registro, recibido_por) VALUES ($1, $2, $3, $4, $5, NOW(), $6)", 
+        [id_producto, tipo, cantidad, id_obra, fechaEvento, recibido_por]
     );
     
     const operacion = tipo === 'ENTRADA' ? '+' : '-';
@@ -128,6 +129,8 @@ app.post('/movimientos', async (req, res) => {
     res.json({ mensaje: "Stock actualizado correctamente" });
   } catch (err) { res.status(500).send('Error al actualizar stock'); }
 });
+
+// ... (resto del código igual)
 
 // 🔄 ELIMINAR MOVIMIENTO (CON REVERSIÓN DE STOCK) - CRÍTICO
 app.delete('/movimientos/:id', async (req, res) => {

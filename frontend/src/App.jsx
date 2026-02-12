@@ -47,11 +47,13 @@ function App() {
 
   const [formObra, setFormObra] = useState({ nombre: '', cliente: '', presupuesto: '' })
   
+  // MODIFICADO: Agregamos 'recibido_por' para las salidas
   const [movimientoData, setMovimientoData] = useState({ 
     id_producto: '', 
     cantidad: '', 
     id_obra: '', 
-    fecha: new Date().toISOString().split('T')[0] 
+    fecha: new Date().toISOString().split('T')[0],
+    recibido_por: '' // Nuevo campo
   })
   
   const [tabIngreso, setTabIngreso] = useState('MANUAL')
@@ -182,6 +184,7 @@ function App() {
     let obraFinal = null;
     if (tipo === 'SALIDA') { if(!movimientoData.id_obra) return alert("Debe seleccionar una obra de destino"); obraFinal = movimientoData.id_obra; }
     
+    // MODIFICADO: Enviamos 'recibido_por'
     await fetch(`${API_URL}/movimientos`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
@@ -190,10 +193,11 @@ function App() {
             tipo: tipo, 
             cantidad: movimientoData.cantidad, 
             id_obra: obraFinal,
-            fecha: movimientoData.fecha 
+            fecha: movimientoData.fecha,
+            recibido_por: movimientoData.recibido_por // Enviamos quien retira
         }) 
     }); 
-    setMovimientoData({ ...movimientoData, cantidad: '' }); obtenerDatos();
+    setMovimientoData({ ...movimientoData, cantidad: '', recibido_por: '' }); obtenerDatos();
     alert(tipo === 'ENTRADA' ? "✅ Ingreso a bodega registrado" : "🚀 Despacho a obra registrado");
   }
 
@@ -385,7 +389,7 @@ function App() {
                         <div><label className="text-xs font-bold text-slate-500">Precio Unitario ($) *</label><input required className="w-full border p-2 rounded font-bold text-lg" type="number" min="0" placeholder="0" value={ingresoManual.precio_unitario} onChange={e=>setIngresoManual({...ingresoManual, precio_unitario: e.target.value})} /></div>
                      </div>
                      <div>
-                        <label className="text-xs font-bold text-slate-500">Recibido Por</label>
+                        <label className="text-xs font-bold text-slate-500">Recibido Por (En Bodega)</label>
                         <input className="w-full border p-2 rounded" type="text" placeholder="Nombre del responsable" value={ingresoManual.recibido_por} onChange={e=>setIngresoManual({...ingresoManual, recibido_por: e.target.value})} />
                      </div>
                      <div className="bg-slate-50 p-4 rounded text-right border border-slate-200">
@@ -425,8 +429,13 @@ function App() {
                    <div><label className="block text-sm font-bold text-slate-600 mb-2">Destino (Obra)</label><select required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" value={movimientoData.id_obra} onChange={(e) => setMovimientoData({...movimientoData, id_obra: e.target.value})}><option value="">-- Seleccionar Obra --</option>{obras.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}</select></div>
                    <div><label className="block text-sm font-bold text-slate-600 mb-2">Seleccionar Producto</label><select required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" onChange={(e) => setMovimientoData({...movimientoData, id_producto: e.target.value})}><option value="">-- Buscar en catálogo --</option>{materiales.map(m => (<option key={m.id} value={m.id}>{m.nombre} (Disp: {m.stock_actual})</option>))}</select></div>
                    <div><label className="block text-sm font-bold text-slate-600 mb-2">Cantidad a Despachar</label><input type="number" required min="1" className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500 text-lg font-bold" value={movimientoData.cantidad} onChange={(e) => setMovimientoData({...movimientoData, cantidad: e.target.value})} /></div>
-                   {/* NUEVO: Input de fecha para salida */}
-                   <div><label className="block text-sm font-bold text-slate-600 mb-2">Fecha del Despacho</label><input type="date" required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" value={movimientoData.fecha} onChange={(e) => setMovimientoData({...movimientoData, fecha: e.target.value})} /></div>
+                   
+                   {/* NUEVOS INPUTS SALIDA */}
+                   <div className="grid grid-cols-2 gap-4">
+                      <div><label className="block text-sm font-bold text-slate-600 mb-2">Fecha del Despacho</label><input type="date" required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" value={movimientoData.fecha} onChange={(e) => setMovimientoData({...movimientoData, fecha: e.target.value})} /></div>
+                      <div><label className="block text-sm font-bold text-slate-600 mb-2">Responsable / Quién Retira</label><input type="text" required className="w-full border p-3 rounded bg-slate-50 outline-none focus:border-red-500" placeholder="Nombre..." value={movimientoData.recibido_por} onChange={(e) => setMovimientoData({...movimientoData, recibido_por: e.target.value})} /></div>
+                   </div>
+
                    <button className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded text-lg transition shadow-lg">CONFIRMAR SALIDA</button>
                 </form>
              </div>
@@ -553,8 +562,8 @@ function App() {
                             <th className="px-4 py-3">Producto</th>
                             <th className="px-4 py-3 text-center">Tipo</th>
                             <th className="px-4 py-3 text-center">Cantidad</th>
-                            {/* COLUMNA NUEVA */}
-                            <th className="px-4 py-3">Responsable / Detalle</th> 
+                            <th className="px-4 py-3">Proveedor</th>
+                            <th className="px-4 py-3">Responsable</th>
                             <th className="px-4 py-3">Origen / Destino</th>
                             <th className="px-4 py-3 text-center">Acciones</th>
                         </tr>
@@ -572,20 +581,15 @@ function App() {
                           <td className="px-4 py-3 text-center"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${mov.tipo === 'ENTRADA' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{mov.tipo}</span></td>
                           <td className="px-4 py-3 text-center font-bold text-slate-700 text-lg">{mov.cantidad}</td>
                           
-                          {/* COLUMNA DE RESPONSABLE LOGICA MEJORADA */}
-                          <td className="px-4 py-3 text-sm">
-                             {mov.tipo === 'ENTRADA' ? (
-                                <span className="text-slate-500 block text-xs">Prov: <span className="font-bold text-slate-700">{mov.proveedor || 'No registrado'}</span></span>
-                             ) : (
-                                <span className="text-slate-500 block text-xs">Recibe: <span className="font-bold text-slate-700">{mov.recibido_por || 'No registrado'}</span></span>
-                             )}
-                          </td>
+                          {/* COLUMNAS SEPARADAS */}
+                          <td className="px-4 py-3 text-xs text-slate-500">{mov.proveedor || '-'}</td>
+                          <td className="px-4 py-3 text-xs font-bold text-slate-700">{mov.recibido_por || '-'}</td>
 
                           <td className="px-4 py-3 text-xs text-slate-600">{mov.tipo === 'SALIDA' ? (<span className="flex items-center gap-1 font-bold text-orange-600"><IconoBuilding className="w-3 h-3"/> {mov.nombre_obra || 'Obra Desconocida'}</span>) : (<span className="flex items-center gap-1 text-slate-400">🏢 Bodega Central</span>)}</td>
                           <td className="px-4 py-3 text-center"><button onClick={() => eliminarMovimiento(mov.id)} className="text-slate-400 hover:text-red-600 transition p-1 rounded hover:bg-red-50"><IconoTrash /></button></td>
                         </tr>
                       ))}
-                      {historialFiltrado.length === 0 && (<tr><td colSpan="8" className="text-center py-12 text-slate-400 italic">No se encontraron movimientos que coincidan con la búsqueda.</td></tr>)}
+                      {historialFiltrado.length === 0 && (<tr><td colSpan="9" className="text-center py-12 text-slate-400 italic">No se encontraron movimientos que coincidan con la búsqueda.</td></tr>)}
                     </tbody>
                   </table>
                 </div>
