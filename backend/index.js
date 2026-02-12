@@ -491,54 +491,52 @@ app.get('/reporte-historial-pdf', async (req, res) => {
   }
 });
 
-// 12.A SUBIR Y LEER FACTURA (PARSEO AVANZADO)
+// 12.A SUBIR Y LEER FACTURA (MODO REGEX AVANZADO)
 app.post('/subir-factura', upload.single('factura'), async (req, res) => {
   if (!req.file) return res.status(400).send('No se subió ningún archivo');
 
   try {
     const dataBuffer = req.file.buffer;
     const data = await pdf(dataBuffer);
-    const text = data.text; 
+    const text = data.text; // Texto crudo
 
-    // Lógica para tu formato específico (CSV dentro de PDF)
-    // El PDF trae líneas tipo: "1","COD","Desc","Cant","Precio"
+    console.log("📄 Analizando PDF...");
+
     const productosDetectados = [];
-    
-    // 1. Limpiamos el texto para unificar saltos de línea
-    const lineas = text.split(/\r\n|\n/);
 
-    lineas.forEach(linea => {
-      // Buscamos líneas que parezcan filas de tu tabla: "número","texto","texto"...
-      // Regex: Busca comillas, algo, comillas, coma...
-      if (linea.includes('","') && (linea.startsWith('"') || !isNaN(parseInt(linea.charAt(0))))) {
-        
-        // Quitamos comillas iniciales/finales y separamos por ","
-        const partes = linea.replace(/^"|"$/g, '').split('","');
-        
-        // Tu formato parece ser: [Linea, Código, Descripción, Cantidad, Precio Unit, Total]
-        // Ejemplo: ["1", "PROC IVA", "Camara...", "3", "65.000,00", "195.000"]
-        if (partes.length >= 5) {
-           const descripcion = partes[2];
-           const cantidad = parseInt(partes[3]);
-           
-           // Limpiar precio (quitar puntos y cambiar coma decimal si es necesario)
-           // "65.000,00" -> 65000
-           let precioSucio = partes[4]; 
-           let precioLimpio = parseInt(precioSucio.replace(/\./g, '').split(',')[0]);
+    // EXPRESIÓN REGULAR MAESTRA
+    // Busca patrones exactos de tu tabla: "1","COD","Desc","Cant","Precio","Total"
+    // \s* permite espacios o saltos de línea (\n) entre medio, que es lo que estaba fallando antes.
+    const regexFila = /"(\d+)\s*"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"(\d+)\s*"\s*,\s*"([\d\.]+,\d+)\s*"/g;
 
-           if (descripcion && !isNaN(cantidad)) {
-             productosDetectados.push({
-               nombre: descripcion.trim(),
-               cantidad: cantidad,
-               precio_costo: precioLimpio || 0,
-               sku: partes[1] || 'NUEVO-001', // Usamos el código de la factura o uno genérico
-               categoria: 'Importado' // Categoría por defecto para nuevos
-             });
-           }
-        }
+    let match;
+    // Buscamos todas las coincidencias en el texto completo
+    while ((match = regexFila.exec(text)) !== null) {
+      // match[1] = Linea (1)
+      // match[2] = Código (PROC IVA)
+      // match[3] = Descripción (Camara IP...)
+      // match[4] = Cantidad (3)
+      // match[5] = Precio (65.000,00)
+
+      const nombreLimpio = match[3].replace(/\n/g, '').trim(); // Quitar saltos de linea del nombre
+      const cantidad = parseInt(match[4].trim());
+      
+      // Limpiar precio: "65.000,00" -> quitar puntos, quitar decimales -> 65000
+      const precioSucio = match[5].trim();
+      const precioLimpio = parseInt(precioSucio.replace(/\./g, '').split(',')[0]);
+
+      if (nombreLimpio && !isNaN(cantidad)) {
+        productosDetectados.push({
+          sku: match[2].trim().replace(/\n/g, '') || 'GEN-001',
+          nombre: nombreLimpio,
+          cantidad: cantidad,
+          precio_costo: precioLimpio,
+          categoria: 'Importación' // Categoría por defecto
+        });
       }
-    });
+    }
 
+    console.log(`✅ Se detectaron ${productosDetectados.length} productos.`);
     res.json({ success: true, productos: productosDetectados });
 
   } catch (err) {
@@ -547,73 +545,51 @@ app.post('/subir-factura', upload.single('factura'), async (req, res) => {
   }
 });
 
-// 12.B INGRESO MASIVO (CREAR PRODUCTOS SI NO EXISTEN)
+// 12.B INGRESO MASIVO (CREA PRODUCTOS SI NO EXISTEN)
+// (Asegúrate de tener este endpoint también en tu archivo)
 app.post('/ingreso-masivo', async (req, res) => {
-  const { productos } = req.body; // Array de productos detectados
+  const { productos } = req.body;
   
+  const client = await pool.connect();
   try {
-    const client = await pool.connect();
-    
-    try {
-      await client.query('BEGIN'); // Iniciar transacción (todo o nada)
+    await client.query('BEGIN');
 
-      for (const p of productos) {
-        // 1. Verificar si el producto ya existe (por nombre exacto o SKU)
-        // Usamos ILIKE para ignorar mayúsculas/minúsculas en el nombre
-        const checkRes = await client.query(
-          'SELECT id, stock_actual FROM productos WHERE nombre ILIKE $1', 
-          [p.nombre]
+    for (const p of productos) {
+      // 1. Verificar si existe (por nombre)
+      const checkRes = await client.query('SELECT id, stock_actual FROM productos WHERE nombre ILIKE $1', [p.nombre]);
+      
+      let idProducto;
+
+      if (checkRes.rows.length > 0) {
+        // ACTUALIZAR EXISTENTE
+        idProducto = checkRes.rows[0].id;
+        await client.query('UPDATE productos SET stock_actual = stock_actual + $1, precio_costo = $2 WHERE id = $3', [p.cantidad, p.precio_costo, idProducto]);
+      } else {
+        // CREAR NUEVO
+        const skuFinal = p.sku === 'PR_OC_IVA' || p.sku === 'PROC IVA' ? `NUEVO-${Math.floor(Math.random()*10000)}` : p.sku;
+        const insertRes = await client.query(
+          `INSERT INTO productos (nombre, sku, categoria, precio_costo, precio_venta, stock_actual)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+          [p.nombre, skuFinal, 'General', p.precio_costo, Math.floor(p.precio_costo * 1.3), p.cantidad]
         );
-
-        let idProducto;
-
-        if (checkRes.rows.length > 0) {
-          // A) EXISTE: Solo actualizamos stock
-          idProducto = checkRes.rows[0].id;
-          const nuevoStock = checkRes.rows[0].stock_actual + parseInt(p.cantidad);
-          
-          await client.query(
-            'UPDATE productos SET stock_actual = $1 WHERE id = $2',
-            [nuevoStock, idProducto]
-          );
-
-        } else {
-          // B) NO EXISTE: Lo creamos desde cero
-          // Generamos un SKU si el de la factura es muy genérico
-          const skuFinal = p.sku === 'PR_OC_IVA' 
-              ? `IMP-${Math.floor(1000 + Math.random() * 9000)}` 
-              : p.sku;
-
-          const insertRes = await client.query(
-            `INSERT INTO productos (nombre, sku, categoria, precio_costo, precio_venta, stock_actual)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-            [p.nombre, skuFinal, 'Nuevos Ingresos', p.precio_costo, Math.floor(p.precio_costo * 1.3), p.cantidad]
-          );
-          idProducto = insertRes.rows[0].id;
-        }
-
-        // 2. Registrar el movimiento en el historial
-        // Ojo: Asumimos 'Bodega Central' (null en id_obra) para ingresos
-        await client.query(
-          `INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, id_obra)
-           VALUES ($1, 'ENTRADA', $2, NOW(), NULL)`,
-          [idProducto, p.cantidad]
-        );
+        idProducto = insertRes.rows[0].id;
       }
 
-      await client.query('COMMIT'); // Guardar cambios
-      res.json({ success: true, message: 'Productos procesados correctamente' });
-
-    } catch (e) {
-      await client.query('ROLLBACK'); // Cancelar si algo falla
-      throw e;
-    } finally {
-      client.release();
+      // 2. Registrar en Historial
+      await client.query(
+        `INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, id_obra) VALUES ($1, 'ENTRADA', $2, NOW(), NULL)`,
+        [idProducto, p.cantidad]
+      );
     }
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Error en ingreso masivo');
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error(e);
+    res.status(500).send('Error');
+  } finally {
+    client.release();
   }
 });
 
