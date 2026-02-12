@@ -161,27 +161,53 @@ function App() {
   }
 
   // NUEVO: Función para subir y leer factura
+// NUEVO: Función mejorada para subir factura
   const procesarFactura = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    setCargandoFactura(true);
+  
+  // Validar que sea PDF o Imagen
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
+      return alert("❌ Formato no válido. Solo se aceptan PDF, JPG o PNG.");
+    }
+
+    setCargandoFactura(true); // Activar carga
     const formData = new FormData();
     formData.append('factura', file);
 
     try {
+      console.log("📡 Enviando archivo al servidor...");
       const r = await fetch(`${API_URL}/subir-factura`, { method: 'POST', body: formData });
-      const d = await r.json();
-      if (d.success) {
-        setProductosFactura(d.productos);
-      } else {
-        alert("Error al leer la factura");
+    
+      console.log("📩 Respuesta recibida. Status:", r.status);
+
+      if (!r.ok) {
+        throw new Error(`Error del servidor: ${r.statusText}`);
       }
+
+      const d = await r.json();
+      console.log("📦 Datos procesados:", d);
+
+      if (d.success) {
+        if (d.productos.length === 0) {
+          alert("⚠️ El sistema leyó el archivo pero no encontró productos conocidos (Cámaras, Cables, etc).");
+        } else {
+          setProductosFactura(d.productos);
+          alert(`✅ ¡Éxito! Se detectaron ${d.productos.length} productos.`);
+        }
+      } else {
+        alert("❌ El servidor no pudo leer la factura.");
+      }
+
     } catch (error) {
-      console.error(error);
-      alert("Error de conexión");
+      console.error("🔥 Error grave:", error);
+      alert(`Error de conexión o lectura: ${error.message}`);
+    } finally {
+    // ESTO ES CLAVE: Se ejecuta SIEMPRE, haya error o no.
+      setCargandoFactura(false); 
+    // Limpiamos el input para permitir subir el mismo archivo de nuevo si falló
+      e.target.value = null; 
     }
-    setCargandoFactura(false);
   }
 
   const ingresarProductosFactura = async () => {
