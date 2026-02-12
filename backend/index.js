@@ -113,10 +113,11 @@ app.get('/movimientos', async (req, res) => {
 app.post('/movimientos', async (req, res) => {
   const { id_producto, tipo, cantidad, id_obra, fecha } = req.body; 
   try {
-    // Usamos la fecha manual si viene, si no, usa NOW(). fecha_registro SIEMPRE es NOW()
-    const fechaEvento = fecha || new Date();
+    // Usamos la fecha manual si viene, si no, usa NOW(). fecha_registro SIEMPRE es NOW()    
+    const fechaEvento = fecha ? new Date(fecha) : new Date();
 
-      // Ajustar la fecha a la zona horaria local
+    console.log("Fecha evento:", fechaEvento)
+    
       await pool.query(
         "INSERT INTO movimientos (id_producto, tipo, cantidad, id_obra, fecha, fecha_registro) VALUES ($1, $2, $3, $4, $5, NOW())", 
         [id_producto, tipo, cantidad, id_obra, fechaEvento]
@@ -273,12 +274,11 @@ app.post('/registrar-ingreso-completo', async (req, res) => {
       );
     }
 
-    await client.query(`UPDATE productos SET stock_actual = stock_actual + $1 WHERE id = $2`, [cantidad, finalId]);
-
-    // Ajustar la fecha a la zona horaria local
+     await client.query(`UPDATE productos SET stock_actual = stock_actual + $1 WHERE id = $2`, [cantidad, finalId]);
 
     // Insertamos 'fecha' (manual) y 'fecha_registro' (NOW)
-    await client.query(
+    const fechaEvento = fecha ? new Date(fecha) : new Date();
+     await client.query(
       `INSERT INTO movimientos (id_producto, tipo, cantidad, fecha, fecha_registro, id_obra, proveedor, recibido_por) 
        VALUES ($1, 'ENTRADA', $2, $3, NOW(), NULL, $4, $5)`,
       [finalId, cantidad, fecha || new Date(), proveedor, recibido_por]
