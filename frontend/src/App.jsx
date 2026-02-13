@@ -80,17 +80,15 @@ function App() {
     return coincideTexto && coincideTipo;
   })
 
-  // --- CORRECCIÓN DEFINITIVA DE ORDENAMIENTO ---
-  // Usamos .sort((a,b) => b.id - a.id) para asegurar que el ID más alto (el último creado) quede primero.
-  
+  // --- LOGICA DE ÚLTIMOS MOVIMIENTOS ---
   const ultimosIngresos = historial
     .filter(h => h.tipo === 'ENTRADA')
-    .sort((a, b) => b.id - a.id) // ESTO GARANTIZA QUE EL ÚLTIMO REGISTRO ESTÉ ARRIBA
+    .sort((a, b) => b.id - a.id)
     .slice(0, 5); 
 
   const ultimasSalidas = historial
     .filter(h => h.tipo === 'SALIDA')
-    .sort((a, b) => b.id - a.id) // LO MISMO AQUÍ
+    .sort((a, b) => b.id - a.id)
     .slice(0, 5);
 
   const obrasReales = obras.filter(o => o.nombre !== 'Bodega Central');
@@ -473,7 +471,7 @@ function App() {
                 {/* === NUEVA SECCIÓN: LO ÚLTIMO AGREGADO (VISIBLE SIEMPRE) === */}
                 <div className="bg-slate-50 border-t border-slate-200 pt-6">
                     <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 pl-2 flex items-center gap-2">
-                        <IconoHistory className="w-4 h-4"/> Últimos Ingresos (Orden Cronológico)
+                        <IconoHistory className="w-4 h-4"/> Últimas Entradas
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
                         {ultimosIngresos.length > 0 ? (
@@ -534,7 +532,7 @@ function App() {
                 {/* === NUEVA SECCIÓN: ÚLTIMAS SALIDAS (VISIBLE SIEMPRE) === */}
                 <div className="bg-slate-50 border-t border-slate-200 pt-6">
                     <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 pl-2 flex items-center gap-2">
-                        <IconoHistory className="w-4 h-4"/> Últimas Salidas Registradas
+                        <IconoHistory className="w-4 h-4"/> Últimas Salidas
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
                         {ultimasSalidas.length > 0 ? (
@@ -687,16 +685,23 @@ function App() {
           {menuActivo === 'Obras' && (
             <>
               {!obraSeleccionada ? (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full content-start">
-                  <div className="bg-white rounded-2xl shadow-lg border border-slate-100 h-fit overflow-hidden sticky top-24">
-                    <div className="bg-slate-800 px-8 py-6 border-b border-slate-700"><h3 className="font-bold text-white text-lg uppercase flex items-center gap-2 tracking-wide"><IconoBriefcase/> Gestión de Proyectos</h3><p className="text-xs text-slate-400 mt-1">Crea centros de costos para asignar materiales.</p></div>
-                    <form onSubmit={guardarObra} className="p-8 space-y-5">
+                // --- VISTA MÓVIL Y ESCRITORIO DE OBRAS ---
+                // "gap-6" es más amigable en móvil.
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 h-full content-start">
+                  
+                  {/* FORMULARIO DE CREAR OBRA */}
+                  {/* "sticky" eliminado en móvil (lg:sticky), padding reducido en móvil (p-6) */}
+                  <div className="bg-white rounded-2xl shadow-lg border border-slate-100 h-fit overflow-hidden relative lg:sticky lg:top-24">
+                    <div className="bg-slate-800 px-6 md:px-8 py-6 border-b border-slate-700"><h3 className="font-bold text-white text-lg uppercase flex items-center gap-2 tracking-wide"><IconoBriefcase/> Gestión de Proyectos</h3><p className="text-xs text-slate-400 mt-1">Crea centros de costos para asignar materiales.</p></div>
+                    <form onSubmit={guardarObra} className="p-6 md:p-8 space-y-5">
                       <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Nombre del Proyecto</label><input required value={formObra.nombre} onChange={e=>setFormObra({...formObra, nombre: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Ej: Edificio Centro" /></div>
                       <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Cliente / Encargado</label><input required value={formObra.cliente} onChange={e=>setFormObra({...formObra, cliente: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Ej: Constructora XYZ" /></div>
                       {rolUsuario === 'ADMIN' && (<div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Presupuesto ($)</label><input value={formObra.presupuesto} onChange={e=>setFormObra({...formObra, presupuesto: e.target.value})} type="number" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>)}
                       <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all hover:scale-[1.02]">CREAR NUEVO PROYECTO</button>
                     </form>
                   </div>
+
+                  {/* LISTA DE TARJETAS DE OBRAS */}
                   <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-min">
                      {obrasReales.map(o => (
                        <div key={o.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative group hover:shadow-xl transition-all hover:-translate-y-1">
