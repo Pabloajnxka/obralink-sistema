@@ -80,15 +80,14 @@ function App() {
     return coincideTexto && coincideTipo;
   })
 
-  // --- LOGICA DE ÚLTIMOS MOVIMIENTOS ---
   const ultimosIngresos = historial
     .filter(h => h.tipo === 'ENTRADA')
-    .sort((a, b) => b.id - a.id)
+    .sort((a, b) => b.id - a.id) 
     .slice(0, 5); 
 
   const ultimasSalidas = historial
     .filter(h => h.tipo === 'SALIDA')
-    .sort((a, b) => b.id - a.id)
+    .sort((a, b) => b.id - a.id) 
     .slice(0, 5);
 
   const obrasReales = obras.filter(o => o.nombre !== 'Bodega Central');
@@ -280,7 +279,21 @@ function App() {
       setMenuMovilAbierto(false); 
       setObraSeleccionada(null); 
   }
+  
+  // --- FUNCIONES MATEMÁTICAS PARA OBRAS ---
   const calcularMaterialesEnObra = (obraId) => historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, item) => acc + parseInt(item.cantidad), 0);
+  
+  // NUEVA FUNCIÓN: Calcula la Inversión en $ de una obra
+  const calcularInversionObra = (obraId) => {
+      return historial
+          .filter(h => h.id_obra === obraId && h.tipo === 'SALIDA')
+          .reduce((acc, mov) => {
+              // Busca el precio del producto en el catálogo actual
+              const prod = materiales.find(m => m.id === mov.id_producto);
+              const costo = prod ? prod.precio_costo : 0;
+              return acc + (parseInt(mov.cantidad) * costo);
+          }, 0);
+  };
 
   useEffect(() => { if(usuarioLogueado) obtenerDatos() }, [usuarioLogueado, menuActivo])
 
@@ -468,10 +481,9 @@ function App() {
                     )}
                 </div>
 
-                {/* === NUEVA SECCIÓN: LO ÚLTIMO AGREGADO (VISIBLE SIEMPRE) === */}
                 <div className="bg-slate-50 border-t border-slate-200 pt-6">
                     <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 pl-2 flex items-center gap-2">
-                        <IconoHistory className="w-4 h-4"/> Últimas Entradas
+                        <IconoHistory className="w-4 h-4"/> Últimos Ingresos (Orden Cronológico)
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
                         {ultimosIngresos.length > 0 ? (
@@ -479,7 +491,6 @@ function App() {
                                 <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center animate-fade-in hover:shadow-md transition-shadow">
                                     <div className="flex items-center gap-4">
                                         <div className="bg-emerald-100 text-emerald-600 w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs">
-                                            {/* Contador visual simple 1, 2, 3... */}
                                             {i + 1}
                                         </div>
                                         <div>
@@ -529,7 +540,6 @@ function App() {
                     </form>
                 </div>
 
-                {/* === NUEVA SECCIÓN: ÚLTIMAS SALIDAS (VISIBLE SIEMPRE) === */}
                 <div className="bg-slate-50 border-t border-slate-200 pt-6">
                     <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 pl-2 flex items-center gap-2">
                         <IconoHistory className="w-4 h-4"/> Últimas Salidas
@@ -685,12 +695,7 @@ function App() {
           {menuActivo === 'Obras' && (
             <>
               {!obraSeleccionada ? (
-                // --- VISTA MÓVIL Y ESCRITORIO DE OBRAS ---
-                // "gap-6" es más amigable en móvil.
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 h-full content-start">
-                  
-                  {/* FORMULARIO DE CREAR OBRA */}
-                  {/* "sticky" eliminado en móvil (lg:sticky), padding reducido en móvil (p-6) */}
                   <div className="bg-white rounded-2xl shadow-lg border border-slate-100 h-fit overflow-hidden relative lg:sticky lg:top-24">
                     <div className="bg-slate-800 px-6 md:px-8 py-6 border-b border-slate-700"><h3 className="font-bold text-white text-lg uppercase flex items-center gap-2 tracking-wide"><IconoBriefcase/> Gestión de Proyectos</h3><p className="text-xs text-slate-400 mt-1">Crea centros de costos para asignar materiales.</p></div>
                     <form onSubmit={guardarObra} className="p-6 md:p-8 space-y-5">
@@ -700,8 +705,6 @@ function App() {
                       <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all hover:scale-[1.02]">CREAR NUEVO PROYECTO</button>
                     </form>
                   </div>
-
-                  {/* LISTA DE TARJETAS DE OBRAS */}
                   <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-min">
                      {obrasReales.map(o => (
                        <div key={o.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative group hover:shadow-xl transition-all hover:-translate-y-1">
@@ -715,8 +718,16 @@ function App() {
                           </div>
                           <div className="space-y-4 pl-3">
                             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex justify-between items-center"><span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Estado</span><span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100 uppercase tracking-wide">● En Ejecución</span></div>
-                            {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString()}</span></div>)}
+                            {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString('es-CL')}</span></div>)}
                             <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-3"><span className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-2"><IconoBox/> Materiales</span><span className="text-lg font-bold text-slate-800">{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span></div>
+                            
+                            {/* NUEVO: MUESTRA LA INVERSIÓN TOTAL EN LA TARJETA */}
+                            {rolUsuario === 'ADMIN' && (
+                                <div className="flex justify-between items-center px-1 pt-1">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-2"><IconoChart/> Inversión</span>
+                                    <span className="text-lg font-bold text-blue-600">${calcularInversionObra(o.id).toLocaleString('es-CL')}</span>
+                                </div>
+                            )}
                             
                             <button onClick={() => setObraSeleccionada(o)} className="w-full mt-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-3 rounded-lg transition-all shadow-md hover:shadow-lg">
                                 VER MATERIALES EN OBRA
@@ -731,7 +742,7 @@ function App() {
                 </div>
               ) : (
                 <div className="bg-white rounded-2xl shadow-lg border border-slate-100 h-full flex flex-col animate-fade-in">
-                    <div className="bg-slate-50/80 backdrop-blur px-8 py-6 border-b border-slate-200 flex justify-between items-center">
+                    <div className="bg-slate-50/80 backdrop-blur px-8 py-6 border-b border-slate-200 flex justify-between items-center flex-wrap gap-4">
                         <div className="flex items-center gap-5">
                             <button onClick={() => setObraSeleccionada(null)} className="bg-white border border-slate-300 p-3 rounded-full hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 text-slate-500 transition-all shadow-sm">
                                 ⬅
@@ -741,9 +752,19 @@ function App() {
                                 <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">{obraSeleccionada.cliente}</p>
                             </div>
                         </div>
-                        <div className="text-right bg-white px-6 py-3 rounded-xl border border-slate-100 shadow-sm">
-                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Items Recibidos</p>
-                             <p className="text-3xl font-extrabold text-orange-600 mt-1">{calcularMaterialesEnObra(obraSeleccionada.id)} <span className="text-sm text-slate-400 font-medium">unid.</span></p>
+                        
+                        <div className="flex items-center gap-3">
+                            {/* NUEVO: CUADRO DE INVERSIÓN TOTAL EN DETALLE */}
+                            {rolUsuario === 'ADMIN' && (
+                                <div className="text-right bg-white px-5 py-3 rounded-xl border border-slate-100 shadow-sm">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Inversión Total</p>
+                                    <p className="text-2xl font-extrabold text-blue-600 mt-1">${calcularInversionObra(obraSeleccionada.id).toLocaleString('es-CL')}</p>
+                                </div>
+                            )}
+                            <div className="text-right bg-white px-5 py-3 rounded-xl border border-slate-100 shadow-sm">
+                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Items Recibidos</p>
+                                 <p className="text-2xl font-extrabold text-orange-600 mt-1">{calcularMaterialesEnObra(obraSeleccionada.id)} <span className="text-sm text-slate-400 font-medium">unid.</span></p>
+                            </div>
                         </div>
                     </div>
                     <div className="overflow-auto flex-1 p-8">
@@ -754,22 +775,37 @@ function App() {
                                     <th className="px-6 py-4 rounded-l-lg">Fecha Entrega</th>
                                     <th className="px-6 py-4">Producto</th>
                                     <th className="px-6 py-4 text-center">Cantidad</th>
+                                    {/* NUEVA COLUMNA DE INVERSIÓN */}
+                                    {rolUsuario === 'ADMIN' && <th className="px-6 py-4 text-right">Inversión</th>}
                                     <th className="px-6 py-4 rounded-r-lg">Quién Recibió</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {historial
                                     .filter(h => h.id_obra === obraSeleccionada.id && h.tipo === 'SALIDA')
-                                    .map((mov, i) => (
-                                    <tr key={i} className="hover:bg-orange-50/50 transition-colors">
-                                        <td className="px-6 py-4 font-mono text-xs text-slate-500">{new Date(mov.fecha).toLocaleDateString('es-CL', { timeZone: 'UTC' })}</td>
-                                        <td className="px-6 py-4 font-bold text-slate-700">{mov.nombre} <span className="font-normal text-slate-400 block text-xs mt-0.5">{mov.sku}</span></td>
-                                        <td className="px-6 py-4 text-center font-bold text-lg text-slate-800 bg-slate-50/50 rounded-lg mx-2">{mov.cantidad}</td>
-                                        <td className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wide">{mov.recibido_por || 'Sin registro'}</td>
-                                    </tr>
-                                ))}
+                                    .map((mov, i) => {
+                                        
+                                        // Calcular la inversión de este movimiento específico
+                                        const prod = materiales.find(m => m.id === mov.id_producto);
+                                        const costoItem = prod ? prod.precio_costo : 0;
+                                        const inversionItem = mov.cantidad * costoItem;
+
+                                        return (
+                                        <tr key={i} className="hover:bg-orange-50/50 transition-colors">
+                                            <td className="px-6 py-4 font-mono text-xs text-slate-500">{new Date(mov.fecha).toLocaleDateString('es-CL', { timeZone: 'UTC' })}</td>
+                                            <td className="px-6 py-4 font-bold text-slate-700">{mov.nombre} <span className="font-normal text-slate-400 block text-xs mt-0.5">{mov.sku}</span></td>
+                                            <td className="px-6 py-4 text-center font-bold text-lg text-slate-800 bg-slate-50/50 rounded-lg mx-2">{mov.cantidad}</td>
+                                            
+                                            {/* NUEVA CELDA CON MONTO DE INVERSIÓN */}
+                                            {rolUsuario === 'ADMIN' && (
+                                                <td className="px-6 py-4 text-right font-bold text-blue-600">${inversionItem.toLocaleString('es-CL')}</td>
+                                            )}
+
+                                            <td className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wide">{mov.recibido_por || 'Sin registro'}</td>
+                                        </tr>
+                                    )})}
                                 {historial.filter(h => h.id_obra === obraSeleccionada.id && h.tipo === 'SALIDA').length === 0 && (
-                                    <tr><td colSpan="4" className="text-center py-16 text-slate-400 italic">No se han enviado materiales a esta obra aún.</td></tr>
+                                    <tr><td colSpan={rolUsuario === 'ADMIN' ? "5" : "4"} className="text-center py-16 text-slate-400 italic">No se han enviado materiales a esta obra aún.</td></tr>
                                 )}
                             </tbody>
                         </table>
