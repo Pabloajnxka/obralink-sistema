@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 
-// IMPORTAMOS LOS ICONOS (Asegúrate de tener IconoUsers en tu archivo Icons.jsx)
+// IMPORTAMOS LOS ICONOS
 import { 
   IconoHome, IconoBox, IconoHistory, IconoBuilding, IconoIn, 
   IconoOut, IconoChart, IconoMail, IconoLock, IconoFilter, 
   IconoTrash, IconoMenu, IconoClose, IconoEdit, IconoBriefcase, 
-  IconoUpload, IconoUsers
+  IconoUpload, IconoUsers, IconoHardHat
 } from './components/Icons'
 
 function App() {
@@ -32,7 +32,8 @@ function App() {
   const [filtroTipoHistorial, setFiltroTipoHistorial] = useState('TODOS')
 
   const [obraSeleccionada, setObraSeleccionada] = useState(null)
-  const [tabDetalleObra, setTabDetalleObra] = useState('MATERIALES') // Controla si vemos materiales o personal en la obra
+  const [tabDetalleObra, setTabDetalleObra] = useState('MATERIALES') 
+  const [tabPersonal, setTabPersonal] = useState('TRABAJADORES') // Nuevo estado para la pestaña personal
 
   const [menuActivo, setMenuActivo] = useState('Inicio')
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false) 
@@ -51,7 +52,9 @@ function App() {
 
   const [formObra, setFormObra] = useState({ nombre: '', cliente: '', presupuesto: '' })
   const [formTrabajador, setFormTrabajador] = useState({ nombre: '', rut: '', cargo: '', costo_diario: '' })
-  const [formAsistencia, setFormAsistencia] = useState({ id_trabajador: '', dias: '1' })
+  
+  // Modificado: Agregamos id_obra al formulario de asistencia centralizado
+  const [formAsistencia, setFormAsistencia] = useState({ id_obra: '', id_trabajador: '', dias: '1' })
   const [movimientoData, setMovimientoData] = useState({ id_producto: '', cantidad: '', id_obra: '', fecha: new Date().toISOString().split('T')[0], recibido_por: '' })
 
   // --- VARIABLES COMPUTADAS ---
@@ -82,20 +85,9 @@ function App() {
 
   // --- FUNCIONES DE CÁLCULO FINANCIERO PARA OBRAS ---
   const calcularMaterialesEnObra = (obraId) => historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, item) => acc + parseInt(item.cantidad), 0);
-  
-  const calcularCostoMateriales = (obraId) => {
-      return historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, mov) => {
-          const prod = materiales.find(m => m.id === mov.id_producto);
-          return acc + (parseInt(mov.cantidad) * (prod ? prod.precio_costo : 0));
-      }, 0);
-  };
-
-  const calcularCostoPersonal = (obraId) => {
-      return asistencias.filter(a => a.id_obra === obraId).reduce((acc, a) => acc + (parseFloat(a.dias) * a.costo_diario), 0);
-  };
-
+  const calcularCostoMateriales = (obraId) => { return historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, mov) => { const prod = materiales.find(m => m.id === mov.id_producto); return acc + (parseInt(mov.cantidad) * (prod ? prod.precio_costo : 0)); }, 0); };
+  const calcularCostoPersonal = (obraId) => { return asistencias.filter(a => a.id_obra === obraId).reduce((acc, a) => acc + (parseFloat(a.dias) * a.costo_diario), 0); };
   const calcularInversionTotal = (obraId) => calcularCostoMateriales(obraId) + calcularCostoPersonal(obraId);
-
 
   // --- EFECTOS Y CONEXIÓN ---
   useEffect(() => {
@@ -135,7 +127,7 @@ function App() {
 
   useEffect(() => { if(usuarioLogueado) obtenerDatos() }, [usuarioLogueado, menuActivo])
 
-  // --- LÓGICA DE TRABAJADORES (NUEVO) ---
+  // --- LÓGICA DE TRABAJADORES Y ASISTENCIA MEJORADA ---
   const guardarTrabajador = async (e) => {
       e.preventDefault();
       await fetch(`${API_URL}/trabajadores`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formTrabajador) });
@@ -144,16 +136,29 @@ function App() {
   }
   const eliminarTrabajador = async (id) => {
       if(window.confirm("¿Eliminar trabajador? Se mantendrá en el historial pero ya no aparecerá en la lista.")) { 
-          await fetch(`${API_URL}/trabajadores/${id}`, { method: 'DELETE' }); 
-          obtenerDatos(); 
+          await fetch(`${API_URL}/trabajadores/${id}`, { method: 'DELETE' }); obtenerDatos(); 
       }
   }
+  
+  // Esta función ahora sirve para Asignar desde cualquier lado (Personal o Obras)
   const asignarAsistencia = async (e) => {
       e.preventDefault();
-      if (!formAsistencia.id_trabajador || !obraSeleccionada) return alert("Faltan datos");
-      await fetch(`${API_URL}/asistencias`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_obra: obraSeleccionada.id, id_trabajador: formAsistencia.id_trabajador, dias: formAsistencia.dias }) });
-      setFormAsistencia({ ...formAsistencia, dias: '1' }); obtenerDatos();
+      const obraIdFinal = formAsistencia.id_obra || (obraSeleccionada ? obraSeleccionada.id : null);
+      
+      if (!formAsistencia.id_trabajador || !obraIdFinal) return alert("Faltan datos (Obra o Trabajador).");
+      
+      await fetch(`${API_URL}/asistencias`, { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ id_obra: obraIdFinal, id_trabajador: formAsistencia.id_trabajador, dias: formAsistencia.dias }) 
+      });
+      
+      // Reseteamos solo el trabajador, así puedes seguir cargando gente a la misma obra rápidamente
+      setFormAsistencia({ ...formAsistencia, id_trabajador: '', dias: '1' }); 
+      obtenerDatos();
+      alert("✅ Asistencia registrada.");
   }
+  
   const eliminarAsistencia = async (id) => {
       if(window.confirm("¿Eliminar este registro de días?")) { await fetch(`${API_URL}/asistencias/${id}`, { method: 'DELETE' }); obtenerDatos(); }
   }
@@ -166,15 +171,8 @@ function App() {
     if (!ingresoManual.cantidad || !ingresoManual.precio_unitario) return alert("⚠️ Faltan datos numéricos");
 
     const payload = {
-        esNuevo: ingresoManual.esNuevo,
-        id_producto: ingresoManual.id_producto,
-        nombre: ingresoManual.esNuevo ? ingresoManual.nombre_nuevo : '', 
-        categoria: ingresoManual.categoria,
-        cantidad: ingresoManual.cantidad,
-        precio_unitario: ingresoManual.precio_unitario,
-        fecha: ingresoManual.fecha,
-        proveedor: ingresoManual.proveedor,
-        recibido_por: ingresoManual.recibido_por
+        esNuevo: ingresoManual.esNuevo, id_producto: ingresoManual.id_producto, nombre: ingresoManual.esNuevo ? ingresoManual.nombre_nuevo : '', 
+        categoria: ingresoManual.categoria, cantidad: ingresoManual.cantidad, precio_unitario: ingresoManual.precio_unitario, fecha: ingresoManual.fecha, proveedor: ingresoManual.proveedor, recibido_por: ingresoManual.recibido_por
     };
 
     try {
@@ -313,46 +311,114 @@ function App() {
             </div>
           )}
 
-          {/* SECCIÓN PERSONAL */}
+          {/* ==========================================
+              NUEVO: SECCIÓN DE PERSONAL (CENTRALIZADA)
+              ========================================== */}
           {menuActivo === 'Personal' && (
-             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full content-start">
-               <div className="bg-white rounded-2xl shadow-lg border border-slate-100 h-fit overflow-hidden lg:sticky lg:top-24">
-                 <div className="bg-slate-800 px-6 py-6 border-b border-slate-700">
-                    <h3 className="font-bold text-white text-lg uppercase flex items-center gap-2 tracking-wide"><IconoUsers/> Registro de Trabajadores</h3>
-                 </div>
-                 <form onSubmit={guardarTrabajador} className="p-6 space-y-5">
-                   <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Nombre Completo</label><input required value={formTrabajador.nombre} onChange={e=>setFormTrabajador({...formTrabajador, nombre: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
-                   <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">RUT</label><input required value={formTrabajador.rut} onChange={e=>setFormTrabajador({...formTrabajador, rut: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
-                   <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Cargo / Especialidad</label><input required value={formTrabajador.cargo} onChange={e=>setFormTrabajador({...formTrabajador, cargo: e.target.value})} placeholder="Ej: Maestro, Jornal, Capataz" type="text" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
-                   {rolUsuario === 'ADMIN' && (
-                      <div><label className="text-xs font-bold text-blue-600 block mb-1 uppercase tracking-wide">Costo Diario ($)</label><input required value={formTrabajador.costo_diario} onChange={e=>setFormTrabajador({...formTrabajador, costo_diario: e.target.value})} type="number" className="w-full border border-blue-300 p-3 rounded-xl bg-blue-50 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
-                   )}
-                   <button className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg transition-all hover:scale-[1.02]">GUARDAR TRABAJADOR</button>
-                 </form>
-               </div>
-               
-               <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden h-fit">
-                 <div className="bg-slate-50 px-6 py-4 border-b border-slate-200"><h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">Plantilla de Personal</h3></div>
-                 <div className="overflow-x-auto p-4">
-                     <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-500 uppercase font-bold border-b">
-                            <tr><th className="px-4 py-3">Nombre</th><th className="px-4 py-3">RUT</th><th className="px-4 py-3">Cargo</th>{rolUsuario === 'ADMIN' && <th className="px-4 py-3 text-right">Valor Día</th>}<th className="px-4 py-3 text-center">Acciones</th></tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {trabajadores.map(t => (
-                                <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-4 py-3 font-bold text-slate-700">{t.nombre}</td>
-                                    <td className="px-4 py-3 text-slate-500 font-mono text-xs">{t.rut}</td>
-                                    <td className="px-4 py-3"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold uppercase">{t.cargo}</span></td>
-                                    {rolUsuario === 'ADMIN' && <td className="px-4 py-3 text-right font-bold text-slate-700">${t.costo_diario.toLocaleString('es-CL')}</td>}
-                                    <td className="px-4 py-3 text-center"><button onClick={() => eliminarTrabajador(t.id)} className="text-slate-400 hover:text-rose-600 transition p-2 rounded-full hover:bg-rose-50"><IconoTrash /></button></td>
-                                </tr>
-                            ))}
-                            {trabajadores.length === 0 && (<tr><td colSpan="5" className="text-center py-8 text-slate-400 italic">No hay trabajadores registrados.</td></tr>)}
-                        </tbody>
-                     </table>
-                 </div>
-               </div>
+             <div className="space-y-6">
+                
+                {/* PARTE SUPERIOR: FORMULARIOS (CREAR TRABAJADOR Y ASIGNAR ASISTENCIA) */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* FORM: NUEVO TRABAJADOR */}
+                    <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+                        <div className="bg-slate-800 px-6 py-4 border-b border-slate-700">
+                            <h3 className="font-bold text-white text-sm uppercase flex items-center gap-2 tracking-wide"><IconoUsers/> Alta de Trabajador</h3>
+                        </div>
+                        <form onSubmit={guardarTrabajador} className="p-6 space-y-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Nombre Completo</label><input required value={formTrabajador.nombre} onChange={e=>setFormTrabajador({...formTrabajador, nombre: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-slate-500 outline-none transition" /></div>
+                                <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">RUT</label><input required value={formTrabajador.rut} onChange={e=>setFormTrabajador({...formTrabajador, rut: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-slate-500 outline-none transition" /></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Cargo / Especialidad</label><input required value={formTrabajador.cargo} onChange={e=>setFormTrabajador({...formTrabajador, cargo: e.target.value})} placeholder="Ej: Capataz" type="text" className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-slate-500 outline-none transition" /></div>
+                                {rolUsuario === 'ADMIN' && (
+                                    <div><label className="text-xs font-bold text-blue-600 block mb-1 uppercase tracking-wide">Costo Diario ($)</label><input required value={formTrabajador.costo_diario} onChange={e=>setFormTrabajador({...formTrabajador, costo_diario: e.target.value})} type="number" className="w-full border border-blue-300 p-3 rounded-xl bg-blue-50 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
+                                )}
+                            </div>
+                            <button className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-xl shadow-md transition-all hover:scale-[1.01]">REGISTRAR TRABAJADOR</button>
+                        </form>
+                    </div>
+
+                    {/* FORM: CARGA RÁPIDA DE ASISTENCIA */}
+                    <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden relative">
+                        <div className="absolute top-0 right-0 p-8 opacity-5 text-indigo-900 pointer-events-none"><IconoHardHat /></div>
+                        <div className="bg-indigo-600 px-6 py-4 border-b border-indigo-700">
+                            <h3 className="font-bold text-white text-sm uppercase flex items-center gap-2 tracking-wide"><IconoHardHat/> Carga Rápida de Asistencia</h3>
+                        </div>
+                        <form onSubmit={asignarAsistencia} className="p-6 space-y-5 relative z-10">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Destino (Obra)</label>
+                                <select required className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition" value={formAsistencia.id_obra} onChange={e=>setFormAsistencia({...formAsistencia, id_obra: e.target.value})}>
+                                    <option value="">-- Seleccionar Obra --</option>
+                                    {obrasReales.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-3 gap-5">
+                                <div className="col-span-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Trabajador</label>
+                                    <select required className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition" value={formAsistencia.id_trabajador} onChange={e=>setFormAsistencia({...formAsistencia, id_trabajador: e.target.value})}>
+                                        <option value="">-- Buscar persona --</option>
+                                        {trabajadores.map(t => <option key={t.id} value={t.id}>{t.nombre} ({t.cargo})</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Días</label>
+                                    <input type="number" step="0.5" min="0.5" required className="w-full border border-slate-300 p-3 rounded-xl font-bold text-lg text-indigo-700 focus:ring-2 focus:ring-indigo-500 outline-none transition text-center" value={formAsistencia.dias} onChange={e=>setFormAsistencia({...formAsistencia, dias: e.target.value})}/>
+                                </div>
+                            </div>
+                            <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-md transition-all hover:scale-[1.01] shadow-indigo-200">ASIGNAR JORNADA</button>
+                        </form>
+                    </div>
+                </div>
+
+                {/* PARTE INFERIOR: TABLAS (PLANTILLA VS HISTORIAL DE ASISTENCIAS) */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="flex bg-slate-50 border-b border-slate-200 px-6 pt-4 gap-6">
+                        <button onClick={()=>setTabPersonal('TRABAJADORES')} className={`pb-3 text-sm font-bold tracking-wide uppercase transition-all ${tabPersonal === 'TRABAJADORES' ? 'text-indigo-600 border-b-4 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>Plantilla Activa ({trabajadores.length})</button>
+                        <button onClick={()=>setTabPersonal('ASISTENCIAS')} className={`pb-3 text-sm font-bold tracking-wide uppercase transition-all ${tabPersonal === 'ASISTENCIAS' ? 'text-indigo-600 border-b-4 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>Historial General de Asistencia</button>
+                    </div>
+
+                    <div className="overflow-x-auto p-2">
+                        {tabPersonal === 'TRABAJADORES' ? (
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-slate-400 uppercase font-bold border-b border-slate-100">
+                                    <tr><th className="px-6 py-4">Nombre</th><th className="px-6 py-4">RUT</th><th className="px-6 py-4">Cargo</th>{rolUsuario === 'ADMIN' && <th className="px-6 py-4 text-right">Valor Día</th>}<th className="px-6 py-4 text-center">Acciones</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {trabajadores.map(t => (
+                                        <tr key={t.id} className="hover:bg-indigo-50/30 transition-colors">
+                                            <td className="px-6 py-4 font-bold text-slate-700">{t.nombre}</td>
+                                            <td className="px-6 py-4 text-slate-500 font-mono text-xs">{t.rut}</td>
+                                            <td className="px-6 py-4"><span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">{t.cargo}</span></td>
+                                            {rolUsuario === 'ADMIN' && <td className="px-6 py-4 text-right font-bold text-slate-600">${t.costo_diario.toLocaleString('es-CL')}</td>}
+                                            <td className="px-6 py-4 text-center"><button onClick={() => eliminarTrabajador(t.id)} className="text-slate-300 hover:text-rose-600 transition-colors p-2 rounded-full hover:bg-rose-50"><IconoTrash /></button></td>
+                                        </tr>
+                                    ))}
+                                    {trabajadores.length === 0 && (<tr><td colSpan="5" className="text-center py-12 text-slate-400 italic">No hay trabajadores registrados en la base de datos.</td></tr>)}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-slate-400 uppercase font-bold border-b border-slate-100">
+                                    <tr><th className="px-6 py-4">Fecha Carga</th><th className="px-6 py-4">Obra Asignada</th><th className="px-6 py-4">Trabajador</th><th className="px-6 py-4 text-center">Días Trabajados</th>{rolUsuario === 'ADMIN' && <th className="px-6 py-4 text-right">Total a Pagar</th>}<th className="px-6 py-4 text-center">Acción</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {asistencias.map((asist) => (
+                                        <tr key={asist.id} className="hover:bg-indigo-50/30 transition-colors">
+                                            <td className="px-6 py-4 font-mono text-xs text-slate-500">{new Date(asist.fecha_registro).toLocaleDateString('es-CL')}</td>
+                                            <td className="px-6 py-4 font-bold text-indigo-600"><span className="flex items-center gap-2"><IconoBuilding className="w-4 h-4"/> {asist.nombre_obra}</span></td>
+                                            <td className="px-6 py-4 font-bold text-slate-700">{asist.nombre} <span className="font-normal text-slate-400 block text-xs mt-0.5">{asist.cargo}</span></td>
+                                            <td className="px-6 py-4 text-center font-extrabold text-lg text-slate-800">{asist.dias}</td>
+                                            {rolUsuario === 'ADMIN' && <td className="px-6 py-4 text-right font-bold text-slate-700">${(parseFloat(asist.dias) * asist.costo_diario).toLocaleString('es-CL')}</td>}
+                                            <td className="px-6 py-4 text-center"><button onClick={() => eliminarAsistencia(asist.id)} className="text-slate-300 hover:text-rose-600 transition-colors p-2 rounded-full hover:bg-rose-50"><IconoTrash /></button></td>
+                                        </tr>
+                                    ))}
+                                    {asistencias.length === 0 && (<tr><td colSpan="6" className="text-center py-12 text-slate-400 italic">No hay historial de asistencia.</td></tr>)}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
              </div>
           )}
 
@@ -495,7 +561,7 @@ function App() {
 
                 <div className="bg-slate-50 border-t border-slate-200 pt-6">
                     <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 pl-2 flex items-center gap-2">
-                        <IconoHistory className="w-4 h-4"/> Últimas Salidas
+                        <IconoHistory className="w-4 h-4"/> Últimas Salidas Registradas
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
                         {ultimasSalidas.length > 0 ? (
@@ -766,16 +832,16 @@ function App() {
                                 <form onSubmit={asignarAsistencia} className="bg-slate-50 p-6 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-end">
                                     <div className="flex-1 w-full">
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 block">Trabajador</label>
-                                        <select required className="w-full border border-slate-300 p-3 rounded-lg bg-white outline-none" value={formAsistencia.id_trabajador} onChange={e=>setFormAsistencia({...formAsistencia, id_trabajador: e.target.value})}>
-                                            <option value="">-- Seleccionar --</option>
+                                        <select required className="w-full border border-slate-300 p-3 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500" value={formAsistencia.id_trabajador} onChange={e=>setFormAsistencia({...formAsistencia, id_trabajador: e.target.value})}>
+                                            <option value="">-- Seleccionar Trabajador --</option>
                                             {trabajadores.map(t => <option key={t.id} value={t.id}>{t.nombre} ({t.cargo})</option>)}
                                         </select>
                                     </div>
                                     <div className="w-full md:w-32">
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 block">Días</label>
-                                        <input type="number" step="0.5" min="0.5" required className="w-full border border-slate-300 p-3 rounded-lg bg-white outline-none font-bold" value={formAsistencia.dias} onChange={e=>setFormAsistencia({...formAsistencia, dias: e.target.value})}/>
+                                        <input type="number" step="0.5" min="0.5" required className="w-full border border-slate-300 p-3 rounded-lg bg-white outline-none font-bold focus:ring-2 focus:ring-indigo-500 text-center" value={formAsistencia.dias} onChange={e=>setFormAsistencia({...formAsistencia, dias: e.target.value})}/>
                                     </div>
-                                    <button className="bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-6 rounded-lg w-full md:w-auto transition-all">ASIGNAR</button>
+                                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg w-full md:w-auto transition-all shadow-md">ASIGNAR JORNADA</button>
                                 </form>
 
                                 <table className="w-full text-sm text-left">
@@ -789,7 +855,7 @@ function App() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {asistencias.filter(a => a.id_obra === obraSeleccionada.id).map((asist, i) => (
+                                        {asistencias.filter(a => a.id_obra === obraSeleccionada.id).map((asist) => (
                                             <tr key={asist.id} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-6 py-4 font-mono text-xs text-slate-500">{new Date(asist.fecha_registro).toLocaleDateString('es-CL')}</td>
                                                 <td className="px-6 py-4 font-bold text-slate-700">{asist.nombre} <span className="font-normal text-slate-400 block text-xs mt-0.5">{asist.cargo}</span></td>
@@ -798,6 +864,7 @@ function App() {
                                                 <td className="px-6 py-4 text-center"><button onClick={() => eliminarAsistencia(asist.id)} className="text-slate-300 hover:text-rose-600 transition p-2 rounded-full hover:bg-rose-50"><IconoTrash /></button></td>
                                             </tr>
                                         ))}
+                                        {asistencias.filter(a => a.id_obra === obraSeleccionada.id).length === 0 && (<tr><td colSpan={rolUsuario === 'ADMIN' ? "5" : "4"} className="text-center py-16 text-slate-400 italic">Aún no has asignado trabajadores a esta obra.</td></tr>)}
                                     </tbody>
                                 </table>
                             </div>
