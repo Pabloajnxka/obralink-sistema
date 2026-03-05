@@ -1,69 +1,60 @@
 import { useEffect, useState } from 'react'
 
-// IMPORTAMOS LOS ICONOS
+// IMPORTAMOS LOS ICONOS (Asegúrate de tener IconoUsers en tu archivo Icons.jsx)
 import { 
   IconoHome, IconoBox, IconoHistory, IconoBuilding, IconoIn, 
   IconoOut, IconoChart, IconoMail, IconoLock, IconoFilter, 
   IconoTrash, IconoMenu, IconoClose, IconoEdit, IconoBriefcase, 
-  IconoUpload 
+  IconoUpload, IconoUsers
 } from './components/Icons'
 
 function App() {
   const API_URL = 'https://obralink-sistema.onrender.com';
 
+  // --- ESTADOS DE AUTENTICACIÓN ---
   const [usuarioLogueado, setUsuarioLogueado] = useState(null)
   const [rolUsuario, setRolUsuario] = useState('') 
   const [loginData, setLoginData] = useState({ email: '', password: '' })
   const [errorLogin, setErrorLogin] = useState('')
   const [recordarSesion, setRecordarSesion] = useState(false)
   
+  // --- ESTADOS DE DATOS ---
   const [materiales, setMateriales] = useState([])
   const [historial, setHistorial] = useState([])
   const [obras, setObras] = useState([])
+  const [trabajadores, setTrabajadores] = useState([])
+  const [asistencias, setAsistencias] = useState([])
   
+  // --- ESTADOS DE UI Y FILTROS ---
   const [busqueda, setBusqueda] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
   const [busquedaHistorial, setBusquedaHistorial] = useState('')
   const [filtroTipoHistorial, setFiltroTipoHistorial] = useState('TODOS')
 
   const [obraSeleccionada, setObraSeleccionada] = useState(null)
-
-  const [ingresoManual, setIngresoManual] = useState({
-    esNuevo: false,
-    id_producto: '',
-    nombre_nuevo: '',
-    categoria: '',
-    cantidad: '',
-    precio_unitario: '',
-    fecha: new Date().toISOString().split('T')[0],
-    proveedor: '',
-    recibido_por: ''
-  })
-
-  const [formulario, setFormulario] = useState({ 
-    nombre: '', sku: '', precio_costo: '', categoria: '',
-    proveedor: '', recibido_por: ''
-  })
-  const [idEditando, setIdEditando] = useState(null)
-  const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false)
-
-  const [formObra, setFormObra] = useState({ nombre: '', cliente: '', presupuesto: '' })
-  
-  const [movimientoData, setMovimientoData] = useState({ 
-    id_producto: '', 
-    cantidad: '', 
-    id_obra: '', 
-    fecha: new Date().toISOString().split('T')[0],
-    recibido_por: ''
-  })
-  
-  const [tabIngreso, setTabIngreso] = useState('MANUAL')
-  const [productosFactura, setProductosFactura] = useState([])
-  const [cargandoFactura, setCargandoFactura] = useState(false)
+  const [tabDetalleObra, setTabDetalleObra] = useState('MATERIALES') // Controla si vemos materiales o personal en la obra
 
   const [menuActivo, setMenuActivo] = useState('Inicio')
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false) 
 
+  const [tabIngreso, setTabIngreso] = useState('MANUAL')
+  const [productosFactura, setProductosFactura] = useState([])
+  const [cargandoFactura, setCargandoFactura] = useState(false)
+
+  // --- ESTADOS DE FORMULARIOS ---
+  const [ingresoManual, setIngresoManual] = useState({
+    esNuevo: false, id_producto: '', nombre_nuevo: '', categoria: '', cantidad: '', precio_unitario: '', fecha: new Date().toISOString().split('T')[0], proveedor: '', recibido_por: ''
+  })
+  const [formulario, setFormulario] = useState({ nombre: '', sku: '', precio_costo: '', categoria: '', proveedor: '', recibido_por: '' })
+  const [idEditando, setIdEditando] = useState(null)
+  const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false)
+
+  const [formObra, setFormObra] = useState({ nombre: '', cliente: '', presupuesto: '' })
+  const [formTrabajador, setFormTrabajador] = useState({ nombre: '', rut: '', cargo: '', costo_diario: '' })
+  const [formAsistencia, setFormAsistencia] = useState({ id_trabajador: '', dias: '1' })
+  const [movimientoData, setMovimientoData] = useState({ id_producto: '', cantidad: '', id_obra: '', fecha: new Date().toISOString().split('T')[0], recibido_por: '' })
+
+  // --- VARIABLES COMPUTADAS ---
   const categoriasUnicas = [...new Set(materiales.map(m => m.categoria || 'Sin Categoría'))]
   const proveedoresUnicos = [...new Set(materiales.map(m => m.ultimo_proveedor || '').filter(p => p !== ''))]
   
@@ -80,16 +71,8 @@ function App() {
     return coincideTexto && coincideTipo;
   })
 
-  const ultimosIngresos = historial
-    .filter(h => h.tipo === 'ENTRADA')
-    .sort((a, b) => b.id - a.id) 
-    .slice(0, 5); 
-
-  const ultimasSalidas = historial
-    .filter(h => h.tipo === 'SALIDA')
-    .sort((a, b) => b.id - a.id) 
-    .slice(0, 5);
-
+  const ultimosIngresos = historial.filter(h => h.tipo === 'ENTRADA').sort((a, b) => b.id - a.id).slice(0, 5); 
+  const ultimasSalidas = historial.filter(h => h.tipo === 'SALIDA').sort((a, b) => b.id - a.id).slice(0, 5);
   const obrasReales = obras.filter(o => o.nombre !== 'Bodega Central');
 
   const kpiTotalValor = materiales.reduce((acc, m) => acc + (m.stock_actual * m.precio_costo), 0)
@@ -97,13 +80,28 @@ function App() {
   const kpiStockCritico = materiales.filter(m => m.stock_actual < 5).length
   const kpiObrasActivas = obrasReales.length 
 
+  // --- FUNCIONES DE CÁLCULO FINANCIERO PARA OBRAS ---
+  const calcularMaterialesEnObra = (obraId) => historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, item) => acc + parseInt(item.cantidad), 0);
+  
+  const calcularCostoMateriales = (obraId) => {
+      return historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, mov) => {
+          const prod = materiales.find(m => m.id === mov.id_producto);
+          return acc + (parseInt(mov.cantidad) * (prod ? prod.precio_costo : 0));
+      }, 0);
+  };
+
+  const calcularCostoPersonal = (obraId) => {
+      return asistencias.filter(a => a.id_obra === obraId).reduce((acc, a) => acc + (parseFloat(a.dias) * a.costo_diario), 0);
+  };
+
+  const calcularInversionTotal = (obraId) => calcularCostoMateriales(obraId) + calcularCostoPersonal(obraId);
+
+
+  // --- EFECTOS Y CONEXIÓN ---
   useEffect(() => {
     const usuarioGuardado = localStorage.getItem('usuario_obralink');
     const rolGuardado = localStorage.getItem('rol_obralink');
-    if (usuarioGuardado && rolGuardado) {
-      setUsuarioLogueado(usuarioGuardado);
-      setRolUsuario(rolGuardado);
-    }
+    if (usuarioGuardado && rolGuardado) { setUsuarioLogueado(usuarioGuardado); setRolUsuario(rolGuardado); }
   }, []);
 
   const manejarLogin = async (e) => { 
@@ -112,39 +110,55 @@ function App() {
       const r = await fetch(`${API_URL}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loginData) }); 
       const d = await r.json(); 
       if (d.success) { 
-        setUsuarioLogueado(d.nombre); 
-        setRolUsuario(d.rol);
-        if (recordarSesion) {
-          localStorage.setItem('usuario_obralink', d.nombre);
-          localStorage.setItem('rol_obralink', d.rol);
-        }
+        setUsuarioLogueado(d.nombre); setRolUsuario(d.rol);
+        if (recordarSesion) { localStorage.setItem('usuario_obralink', d.nombre); localStorage.setItem('rol_obralink', d.rol); }
       } else { setErrorLogin('Acceso denegado'); }
     } catch { setErrorLogin('Sin conexión con el servidor'); } 
   }
 
-  const cerrarSesion = () => {
-    setUsuarioLogueado(null);
-    setRolUsuario('');
-    localStorage.removeItem('usuario_obralink');
-    localStorage.removeItem('rol_obralink');
-  }
+  const cerrarSesion = () => { setUsuarioLogueado(null); setRolUsuario(''); localStorage.removeItem('usuario_obralink'); localStorage.removeItem('rol_obralink'); }
   
   const obtenerDatos = async () => { 
     try { 
       const rProd = await fetch(`${API_URL}/productos`); const dProd = await rProd.json(); setMateriales(dProd);
       const rObras = await fetch(`${API_URL}/obras`); const dObras = await rObras.json(); setObras(dObras);
+      const rTrab = await fetch(`${API_URL}/trabajadores`); const dTrab = await rTrab.json(); setTrabajadores(dTrab);
+      const rAsist = await fetch(`${API_URL}/asistencias`); const dAsist = await rAsist.json(); setAsistencias(dAsist);
       
       if (dObras.length > 0) {
          const obrasValidas = dObras.filter(o => o.nombre !== 'Bodega Central');
-         if (obrasValidas.length > 0 && !movimientoData.id_obra) {
-            setMovimientoData(prev => ({...prev, id_obra: obrasValidas[0].id}));
-         }
+         if (obrasValidas.length > 0 && !movimientoData.id_obra) setMovimientoData(prev => ({...prev, id_obra: obrasValidas[0].id}));
       }
-
       const rHist = await fetch(`${API_URL}/movimientos`); const dHist = await rHist.json(); setHistorial(dHist); 
     } catch (e) { console.error("Error cargando datos:", e); } 
   }
 
+  useEffect(() => { if(usuarioLogueado) obtenerDatos() }, [usuarioLogueado, menuActivo])
+
+  // --- LÓGICA DE TRABAJADORES (NUEVO) ---
+  const guardarTrabajador = async (e) => {
+      e.preventDefault();
+      await fetch(`${API_URL}/trabajadores`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formTrabajador) });
+      setFormTrabajador({ nombre: '', rut: '', cargo: '', costo_diario: '' }); obtenerDatos();
+      alert("✅ Trabajador registrado.");
+  }
+  const eliminarTrabajador = async (id) => {
+      if(window.confirm("¿Eliminar trabajador? Se mantendrá en el historial pero ya no aparecerá en la lista.")) { 
+          await fetch(`${API_URL}/trabajadores/${id}`, { method: 'DELETE' }); 
+          obtenerDatos(); 
+      }
+  }
+  const asignarAsistencia = async (e) => {
+      e.preventDefault();
+      if (!formAsistencia.id_trabajador || !obraSeleccionada) return alert("Faltan datos");
+      await fetch(`${API_URL}/asistencias`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_obra: obraSeleccionada.id, id_trabajador: formAsistencia.id_trabajador, dias: formAsistencia.dias }) });
+      setFormAsistencia({ ...formAsistencia, dias: '1' }); obtenerDatos();
+  }
+  const eliminarAsistencia = async (id) => {
+      if(window.confirm("¿Eliminar este registro de días?")) { await fetch(`${API_URL}/asistencias/${id}`, { method: 'DELETE' }); obtenerDatos(); }
+  }
+
+  // --- LÓGICAS ORIGINALES ---
   const registrarIngresoCompleto = async (e) => {
     e.preventDefault();
     if (ingresoManual.esNuevo && !ingresoManual.nombre_nuevo) return alert("⚠️ Falta el nombre del producto nuevo");
@@ -164,138 +178,32 @@ function App() {
     };
 
     try {
-        const r = await fetch(`${API_URL}/registrar-ingreso-completo`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
+        const r = await fetch(`${API_URL}/registrar-ingreso-completo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const d = await r.json();
-        
         if(d.success) {
             alert("✅ Ingreso registrado con éxito");
             setIngresoManual({ ...ingresoManual, nombre_nuevo: '', cantidad: '', precio_unitario: '', proveedor: '', recibido_por: '' });
             obtenerDatos();
-        } else {
-            alert("❌ Error al registrar: " + (d.error || "Error desconocido en servidor"));
-        }
+        } else { alert("❌ Error al registrar: " + (d.error || "Error desconocido en servidor")); }
     } catch (e) { alert("Error de conexión: " + e.message); }
   }
 
-  const guardarEdicion = async (e) => { 
-    e.preventDefault(); 
-    if (!idEditando) return;
-    await fetch(`${API_URL}/productos/${idEditando}`, { 
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formulario) 
-    });
-    alert("✅ Producto actualizado");
-    setMostrarModalEdicion(false);
-    setIdEditando(null); 
-    obtenerDatos(); 
-  }
-  
-  const guardarObra = async (e) => { 
-    e.preventDefault(); 
-    await fetch(`${API_URL}/obras`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formObra) }); 
-    setFormObra({ nombre: '', cliente: '', presupuesto: '' }); obtenerDatos(); 
-  }
-
-  const registrarMovimiento = async (e, tipo) => {
-    e.preventDefault();
-    if (!movimientoData.id_producto || !movimientoData.cantidad) return alert("Por favor complete los datos");
-    let obraFinal = null;
-    if (tipo === 'SALIDA') { if(!movimientoData.id_obra) return alert("Debe seleccionar una obra de destino"); obraFinal = movimientoData.id_obra; }
-    
-    await fetch(`${API_URL}/movimientos`, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ 
-            id_producto: movimientoData.id_producto, 
-            tipo: tipo, 
-            cantidad: movimientoData.cantidad, 
-            id_obra: obraFinal,
-            fecha: movimientoData.fecha,
-            recibido_por: movimientoData.recibido_por
-        }) 
-    }); 
-    setMovimientoData({ ...movimientoData, cantidad: '', recibido_por: '' }); obtenerDatos();
-    alert(tipo === 'ENTRADA' ? "✅ Ingreso a bodega registrado" : "🚀 Despacho a obra registrado");
-  }
-
-  const procesarFactura = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setCargandoFactura(true);
-    const formData = new FormData();
-    formData.append('factura', file);
-    try {
-      const r = await fetch(`${API_URL}/subir-factura`, { method: 'POST', body: formData });
-      if (!r.ok) throw new Error(`Error: ${r.statusText}`);
-      const d = await r.json();
-      if (d.success) {
-        d.productos.length === 0 ? alert("⚠️ No se detectaron productos.") : setProductosFactura(d.productos);
-      } else { alert("❌ Error leyendo factura."); }
-    } catch (error) { alert(`Error de conexión: ${error.message}`); } 
-    finally { setCargandoFactura(false); e.target.value = null; }
-  }
-
-  const ingresarProductosFactura = async () => {
-    if(!window.confirm(`¿Confirmas el ingreso de ${productosFactura.length} productos?`)) return;
-    try {
-      const r = await fetch(`${API_URL}/ingreso-masivo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productos: productosFactura }) });
-      const d = await r.json();
-      if (d.success) { alert("✅ Inventario actualizado."); setProductosFactura([]); setTabIngreso('MANUAL'); obtenerDatos(); } else { alert("Error al guardar."); }
-    } catch (error) { alert("Error de conexión."); }
-  }
-
-  const eliminarProducto = async (id, nombre) => {
-    if (window.confirm(`⚠️ ¿Eliminar "${nombre}"?`)) {
-      try { await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' }); obtenerDatos(); } catch (e) { alert("Error al eliminar"); }
-    }
-  }
-  const eliminarMovimiento = async (id) => {
-    if (window.confirm(`¿Anular registro y REVERTIR stock?`)) {
-      try { await fetch(`${API_URL}/movimientos/${id}`, { method: 'DELETE' }); obtenerDatos(); } catch (e) { alert("Error al eliminar"); }
-    }
-  }
-  const eliminarObra = async (id, nombre) => {
-    if (window.confirm(`⚠️ ¿Eliminar obra "${nombre}"?`)) {
-      try { const response = await fetch(`${API_URL}/obras/${id}`, { method: 'DELETE' }); if (!response.ok) { return alert("⛔ No puedes eliminar la Bodega Central."); } obtenerDatos(); } catch (e) { alert("Error de conexión."); }
-    }
-  }
+  const guardarEdicion = async (e) => { e.preventDefault(); if (!idEditando) return; await fetch(`${API_URL}/productos/${idEditando}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formulario) }); alert("✅ Producto actualizado"); setMostrarModalEdicion(false); setIdEditando(null); obtenerDatos(); }
+  const guardarObra = async (e) => { e.preventDefault(); await fetch(`${API_URL}/obras`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formObra) }); setFormObra({ nombre: '', cliente: '', presupuesto: '' }); obtenerDatos(); }
+  const registrarMovimiento = async (e, tipo) => { e.preventDefault(); let obraFinal = null; if (tipo === 'SALIDA') { obraFinal = movimientoData.id_obra; } await fetch(`${API_URL}/movimientos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_producto: movimientoData.id_producto, tipo: tipo, cantidad: movimientoData.cantidad, id_obra: obraFinal, fecha: movimientoData.fecha, recibido_por: movimientoData.recibido_por }) }); setMovimientoData({ ...movimientoData, cantidad: '', recibido_por: '' }); obtenerDatos(); alert(tipo === 'ENTRADA' ? "✅ Ingreso registrado" : "🚀 Despacho registrado"); }
+  const procesarFactura = async (e) => { const file = e.target.files[0]; if (!file) return; setCargandoFactura(true); const formData = new FormData(); formData.append('factura', file); try { const r = await fetch(`${API_URL}/subir-factura`, { method: 'POST', body: formData }); const d = await r.json(); if (d.success) { setProductosFactura(d.productos); } } catch (error) {} finally { setCargandoFactura(false); e.target.value = null; } }
+  const ingresarProductosFactura = async () => { if(!window.confirm(`¿Confirmas el ingreso de ${productosFactura.length} productos?`)) return; try { const r = await fetch(`${API_URL}/ingreso-masivo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productos: productosFactura }) }); const d = await r.json(); if (d.success) { alert("✅ Inventario actualizado."); setProductosFactura([]); setTabIngreso('MANUAL'); obtenerDatos(); } } catch (error) {} }
+  const eliminarProducto = async (id, nombre) => { if (window.confirm(`¿Eliminar "${nombre}"?`)) { await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' }); obtenerDatos(); } }
+  const eliminarMovimiento = async (id) => { if (window.confirm(`¿Anular registro y REVERTIR stock?`)) { await fetch(`${API_URL}/movimientos/${id}`, { method: 'DELETE' }); obtenerDatos(); } }
+  const eliminarObra = async (id, nombre) => { if (window.confirm(`¿Eliminar obra "${nombre}"?`)) { await fetch(`${API_URL}/obras/${id}`, { method: 'DELETE' }); obtenerDatos(); } }
   
   const manejarInput = (e) => setFormulario({ ...formulario, [e.target.name]: e.target.value })
-  const abrirEdicion = (prod) => {
-    setFormulario({ 
-        nombre: prod.nombre, 
-        sku: prod.sku, 
-        precio_costo: prod.precio_costo, 
-        categoria: prod.categoria,
-        proveedor: prod.ultimo_proveedor || '', 
-        recibido_por: ''
-    });
-    setIdEditando(prod.id);
-    setMostrarModalEdicion(true);
- }
-  const cambiarMenu = (nuevoMenu) => { 
-      setMenuActivo(nuevoMenu); 
-      setMenuMovilAbierto(false); 
-      setObraSeleccionada(null); 
-  }
-  
-  // --- FUNCIONES MATEMÁTICAS PARA OBRAS ---
-  const calcularMaterialesEnObra = (obraId) => historial.filter(h => h.id_obra === obraId && h.tipo === 'SALIDA').reduce((acc, item) => acc + parseInt(item.cantidad), 0);
-  
-  // NUEVA FUNCIÓN: Calcula la Inversión en $ de una obra
-  const calcularInversionObra = (obraId) => {
-      return historial
-          .filter(h => h.id_obra === obraId && h.tipo === 'SALIDA')
-          .reduce((acc, mov) => {
-              // Busca el precio del producto en el catálogo actual
-              const prod = materiales.find(m => m.id === mov.id_producto);
-              const costo = prod ? prod.precio_costo : 0;
-              return acc + (parseInt(mov.cantidad) * costo);
-          }, 0);
-  };
+  const abrirEdicion = (prod) => { setFormulario({ nombre: prod.nombre, sku: prod.sku, precio_costo: prod.precio_costo, categoria: prod.categoria, proveedor: prod.ultimo_proveedor || '', recibido_por: '' }); setIdEditando(prod.id); setMostrarModalEdicion(true); }
+  const cambiarMenu = (nuevoMenu) => { setMenuActivo(nuevoMenu); setMenuMovilAbierto(false); setObraSeleccionada(null); setTabDetalleObra('MATERIALES'); }
 
-  useEffect(() => { if(usuarioLogueado) obtenerDatos() }, [usuarioLogueado, menuActivo])
+  // ==========================================
+  // RENDERIZADO VISUAL
+  // ==========================================
 
   if (!usuarioLogueado) {
     return (
@@ -358,6 +266,7 @@ function App() {
           <p className="px-4 text-[10px] font-extrabold text-slate-500 mb-2 uppercase tracking-widest mt-6">Gestión</p>
           <button onClick={()=>cambiarMenu('Almacén')} className={`w-full flex items-center px-4 py-3.5 rounded-xl transition-all duration-200 group ${menuActivo === 'Almacén' ? 'bg-slate-700 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}><IconoBox/><span className="ml-3 font-medium">Almacén</span></button>
           <button onClick={()=>cambiarMenu('Obras')} className={`w-full flex items-center px-4 py-3.5 rounded-xl transition-all duration-200 group ${menuActivo === 'Obras' ? 'bg-slate-700 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}><IconoBuilding/><span className="ml-3 font-medium">Obras</span></button>
+          <button onClick={()=>cambiarMenu('Personal')} className={`w-full flex items-center px-4 py-3.5 rounded-xl transition-all duration-200 group ${menuActivo === 'Personal' ? 'bg-slate-700 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}><IconoUsers/><span className="ml-3 font-medium">Personal</span></button>
           <button onClick={()=>cambiarMenu('Historial')} className={`w-full flex items-center px-4 py-3.5 rounded-xl transition-all duration-200 group ${menuActivo === 'Historial' ? 'bg-slate-700 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}><IconoHistory/><span className="ml-3 font-medium">Historial</span></button>
         </nav>
       </aside>
@@ -392,15 +301,59 @@ function App() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-600 text-sm uppercase mb-4 flex items-center gap-2 tracking-wider">Accesos Rápidos</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                     <button onClick={()=>cambiarMenu('Ingresos')} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all duration-300 flex flex-col items-center justify-center gap-3 group"><div className="bg-emerald-50 text-emerald-600 p-4 rounded-full group-hover:bg-emerald-600 group-hover:text-white transition-colors duration-300"><IconoIn /></div><span className="text-xs font-bold text-slate-600 group-hover:text-emerald-700">Ingresos</span></button>
                     <button onClick={()=>cambiarMenu('Salidas')} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:border-rose-500 hover:shadow-lg transition-all duration-300 flex flex-col items-center justify-center gap-3 group"><div className="bg-rose-50 text-rose-600 p-4 rounded-full group-hover:bg-rose-600 group-hover:text-white transition-colors duration-300"><IconoOut /></div><span className="text-xs font-bold text-slate-600 group-hover:text-rose-700">Salidas</span></button>
                     <button onClick={()=>cambiarMenu('Almacén')} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all duration-300 flex flex-col items-center justify-center gap-3 group"><div className="bg-blue-50 text-blue-600 p-4 rounded-full group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300"><IconoBox /></div><span className="text-xs font-bold text-slate-600 group-hover:text-blue-700">Inventario</span></button>
                     <button onClick={()=>cambiarMenu('Obras')} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:border-amber-500 hover:shadow-lg transition-all duration-300 flex flex-col items-center justify-center gap-3 group"><div className="bg-amber-50 text-amber-600 p-4 rounded-full group-hover:bg-amber-600 group-hover:text-white transition-colors duration-300"><IconoBuilding /></div><span className="text-xs font-bold text-slate-600 group-hover:text-amber-700">Obras</span></button>
+                    <button onClick={()=>cambiarMenu('Personal')} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-500 hover:shadow-lg transition-all duration-300 flex flex-col items-center justify-center gap-3 group"><div className="bg-indigo-50 text-indigo-600 p-4 rounded-full group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300"><IconoUsers /></div><span className="text-xs font-bold text-slate-600 group-hover:text-indigo-700">Personal</span></button>
                     <button onClick={()=>cambiarMenu('Historial')} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:border-purple-500 hover:shadow-lg transition-all duration-300 flex flex-col items-center justify-center gap-3 group"><div className="bg-purple-50 text-purple-600 p-4 rounded-full group-hover:bg-purple-600 group-hover:text-white transition-colors duration-300"><IconoHistory /></div><span className="text-xs font-bold text-slate-600 group-hover:text-purple-700">Historial</span></button>
                 </div>
               </div>
             </div>
+          )}
+
+          {/* SECCIÓN PERSONAL */}
+          {menuActivo === 'Personal' && (
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full content-start">
+               <div className="bg-white rounded-2xl shadow-lg border border-slate-100 h-fit overflow-hidden lg:sticky lg:top-24">
+                 <div className="bg-slate-800 px-6 py-6 border-b border-slate-700">
+                    <h3 className="font-bold text-white text-lg uppercase flex items-center gap-2 tracking-wide"><IconoUsers/> Registro de Trabajadores</h3>
+                 </div>
+                 <form onSubmit={guardarTrabajador} className="p-6 space-y-5">
+                   <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Nombre Completo</label><input required value={formTrabajador.nombre} onChange={e=>setFormTrabajador({...formTrabajador, nombre: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
+                   <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">RUT</label><input required value={formTrabajador.rut} onChange={e=>setFormTrabajador({...formTrabajador, rut: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
+                   <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Cargo / Especialidad</label><input required value={formTrabajador.cargo} onChange={e=>setFormTrabajador({...formTrabajador, cargo: e.target.value})} placeholder="Ej: Maestro, Jornal, Capataz" type="text" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
+                   {rolUsuario === 'ADMIN' && (
+                      <div><label className="text-xs font-bold text-blue-600 block mb-1 uppercase tracking-wide">Costo Diario ($)</label><input required value={formTrabajador.costo_diario} onChange={e=>setFormTrabajador({...formTrabajador, costo_diario: e.target.value})} type="number" className="w-full border border-blue-300 p-3 rounded-xl bg-blue-50 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
+                   )}
+                   <button className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg transition-all hover:scale-[1.02]">GUARDAR TRABAJADOR</button>
+                 </form>
+               </div>
+               
+               <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden h-fit">
+                 <div className="bg-slate-50 px-6 py-4 border-b border-slate-200"><h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">Plantilla de Personal</h3></div>
+                 <div className="overflow-x-auto p-4">
+                     <table className="w-full text-sm text-left">
+                        <thead className="text-xs text-slate-500 uppercase font-bold border-b">
+                            <tr><th className="px-4 py-3">Nombre</th><th className="px-4 py-3">RUT</th><th className="px-4 py-3">Cargo</th>{rolUsuario === 'ADMIN' && <th className="px-4 py-3 text-right">Valor Día</th>}<th className="px-4 py-3 text-center">Acciones</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {trabajadores.map(t => (
+                                <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-4 py-3 font-bold text-slate-700">{t.nombre}</td>
+                                    <td className="px-4 py-3 text-slate-500 font-mono text-xs">{t.rut}</td>
+                                    <td className="px-4 py-3"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold uppercase">{t.cargo}</span></td>
+                                    {rolUsuario === 'ADMIN' && <td className="px-4 py-3 text-right font-bold text-slate-700">${t.costo_diario.toLocaleString('es-CL')}</td>}
+                                    <td className="px-4 py-3 text-center"><button onClick={() => eliminarTrabajador(t.id)} className="text-slate-400 hover:text-rose-600 transition p-2 rounded-full hover:bg-rose-50"><IconoTrash /></button></td>
+                                </tr>
+                            ))}
+                            {trabajadores.length === 0 && (<tr><td colSpan="5" className="text-center py-8 text-slate-400 italic">No hay trabajadores registrados.</td></tr>)}
+                        </tbody>
+                     </table>
+                 </div>
+               </div>
+             </div>
           )}
 
           {menuActivo === 'Ingresos' && (
@@ -697,7 +650,7 @@ function App() {
               {!obraSeleccionada ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 h-full content-start">
                   <div className="bg-white rounded-2xl shadow-lg border border-slate-100 h-fit overflow-hidden relative lg:sticky lg:top-24">
-                    <div className="bg-slate-800 px-6 md:px-8 py-6 border-b border-slate-700"><h3 className="font-bold text-white text-lg uppercase flex items-center gap-2 tracking-wide"><IconoBriefcase/> Gestión de Proyectos</h3><p className="text-xs text-slate-400 mt-1">Crea centros de costos para asignar materiales.</p></div>
+                    <div className="bg-slate-800 px-6 md:px-8 py-6 border-b border-slate-700"><h3 className="font-bold text-white text-lg uppercase flex items-center gap-2 tracking-wide"><IconoBriefcase/> Gestión de Proyectos</h3><p className="text-xs text-slate-400 mt-1">Crea centros de costos para asignar recursos.</p></div>
                     <form onSubmit={guardarObra} className="p-6 md:p-8 space-y-5">
                       <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Nombre del Proyecto</label><input required value={formObra.nombre} onChange={e=>setFormObra({...formObra, nombre: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Ej: Edificio Centro" /></div>
                       <div><label className="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-wide">Cliente / Encargado</label><input required value={formObra.cliente} onChange={e=>setFormObra({...formObra, cliente: e.target.value})} type="text" className="w-full border border-slate-300 p-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Ej: Constructora XYZ" /></div>
@@ -707,7 +660,7 @@ function App() {
                   </div>
                   <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-min">
                      {obrasReales.map(o => (
-                       <div key={o.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative group hover:shadow-xl transition-all hover:-translate-y-1">
+                       <div key={o.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative group hover:shadow-xl transition-all hover:-translate-y-1 flex flex-col">
                           <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-400 to-orange-600 rounded-l-2xl"></div>
                           <div className="flex justify-between items-start mb-4 pl-3">
                             <div className="flex items-center gap-4">
@@ -716,28 +669,30 @@ function App() {
                             </div>
                             <button onClick={() => eliminarObra(o.id, o.nombre)} className="text-slate-300 hover:text-rose-500 transition-colors p-2 hover:bg-rose-50 rounded-full"><IconoTrash /></button>
                           </div>
-                          <div className="space-y-4 pl-3">
+                          
+                          <div className="space-y-4 pl-3 flex-1 flex flex-col justify-end">
                             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex justify-between items-center"><span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Estado</span><span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100 uppercase tracking-wide">● En Ejecución</span></div>
-                            {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString('es-CL')}</span></div>)}
-                            <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-3"><span className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-2"><IconoBox/> Materiales</span><span className="text-lg font-bold text-slate-800">{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span></div>
                             
-                            {/* NUEVO: MUESTRA LA INVERSIÓN TOTAL EN LA TARJETA */}
+                            {rolUsuario === 'ADMIN' && (<div className="flex justify-between items-center px-1"><span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Presupuesto</span><span className="text-sm font-bold text-slate-700">${parseInt(o.presupuesto).toLocaleString('es-CL')}</span></div>)}
+                            
+                            <div className="flex justify-between items-center px-1 border-t border-slate-100 pt-3">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-2"><IconoBox/> Mat. Recibidos</span>
+                                <span className="text-base font-bold text-slate-800">{calcularMaterialesEnObra(o.id)} <span className="text-xs text-slate-400 font-normal">unid.</span></span>
+                            </div>
+                            
                             {rolUsuario === 'ADMIN' && (
-                                <div className="flex justify-between items-center px-1 pt-1">
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-2"><IconoChart/> Inversión</span>
-                                    <span className="text-lg font-bold text-blue-600">${calcularInversionObra(o.id).toLocaleString('es-CL')}</span>
+                                <div className="flex justify-between items-center px-1 pt-1 bg-blue-50 p-2 rounded-lg border border-blue-100">
+                                    <span className="text-xs font-extrabold text-blue-600 uppercase tracking-wide flex items-center gap-2"><IconoChart/> Inversión Total</span>
+                                    <span className="text-lg font-extrabold text-blue-700">${calcularInversionTotal(o.id).toLocaleString('es-CL')}</span>
                                 </div>
                             )}
                             
-                            <button onClick={() => setObraSeleccionada(o)} className="w-full mt-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-3 rounded-lg transition-all shadow-md hover:shadow-lg">
-                                VER MATERIALES EN OBRA
+                            <button onClick={() => setObraSeleccionada(o)} className="w-full mt-3 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-3 rounded-lg transition-all shadow-md hover:shadow-lg">
+                                VER DESGLOSE DE COSTOS
                             </button>
                           </div>
                        </div>
                      ))}
-                     {obrasReales.length === 0 && (
-                        <div className="col-span-full text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300 text-slate-400 italic">No hay proyectos activos. ¡Crea uno nuevo!</div>
-                     )}
                   </div>
                 </div>
               ) : (
@@ -753,62 +708,100 @@ function App() {
                             </div>
                         </div>
                         
-                        <div className="flex items-center gap-3">
-                            {/* NUEVO: CUADRO DE INVERSIÓN TOTAL EN DETALLE */}
+                        <div className="flex items-center gap-3 overflow-x-auto">
                             {rolUsuario === 'ADMIN' && (
-                                <div className="text-right bg-white px-5 py-3 rounded-xl border border-slate-100 shadow-sm">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Inversión Total</p>
-                                    <p className="text-2xl font-extrabold text-blue-600 mt-1">${calcularInversionObra(obraSeleccionada.id).toLocaleString('es-CL')}</p>
-                                </div>
+                                <>
+                                    <div className="text-right bg-white px-5 py-3 rounded-xl border border-slate-100 shadow-sm hidden md:block">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mat. Enviados</p>
+                                        <p className="text-xl font-bold text-slate-700 mt-1">${calcularCostoMateriales(obraSeleccionada.id).toLocaleString('es-CL')}</p>
+                                    </div>
+                                    <div className="text-right bg-white px-5 py-3 rounded-xl border border-slate-100 shadow-sm hidden md:block">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mano de Obra</p>
+                                        <p className="text-xl font-bold text-slate-700 mt-1">${calcularCostoPersonal(obraSeleccionada.id).toLocaleString('es-CL')}</p>
+                                    </div>
+                                    <div className="text-right bg-blue-50 px-6 py-3 rounded-xl border border-blue-200 shadow-sm">
+                                        <p className="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest">Inversión Total</p>
+                                        <p className="text-2xl font-extrabold text-blue-700 mt-1">${calcularInversionTotal(obraSeleccionada.id).toLocaleString('es-CL')}</p>
+                                    </div>
+                                </>
                             )}
-                            <div className="text-right bg-white px-5 py-3 rounded-xl border border-slate-100 shadow-sm">
-                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Items Recibidos</p>
-                                 <p className="text-2xl font-extrabold text-orange-600 mt-1">{calcularMaterialesEnObra(obraSeleccionada.id)} <span className="text-sm text-slate-400 font-medium">unid.</span></p>
-                            </div>
                         </div>
                     </div>
+                    
+                    <div className="flex bg-white border-b border-slate-200 px-8 pt-4 gap-6">
+                        <button onClick={()=>setTabDetalleObra('MATERIALES')} className={`pb-3 text-sm font-bold tracking-wide uppercase transition-all ${tabDetalleObra === 'MATERIALES' ? 'text-blue-600 border-b-4 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>Despacho de Materiales</button>
+                        <button onClick={()=>setTabDetalleObra('PERSONAL')} className={`pb-3 text-sm font-bold tracking-wide uppercase transition-all ${tabDetalleObra === 'PERSONAL' ? 'text-blue-600 border-b-4 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>Asistencia y Mano de Obra</button>
+                    </div>
+
                     <div className="overflow-auto flex-1 p-8">
-                        <h3 className="font-bold text-slate-600 mb-6 text-sm uppercase border-b border-slate-200 pb-3 tracking-wide">Lista de Materiales Entregados</h3>
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold">
-                                <tr>
-                                    <th className="px-6 py-4 rounded-l-lg">Fecha Entrega</th>
-                                    <th className="px-6 py-4">Producto</th>
-                                    <th className="px-6 py-4 text-center">Cantidad</th>
-                                    {/* NUEVA COLUMNA DE INVERSIÓN */}
-                                    {rolUsuario === 'ADMIN' && <th className="px-6 py-4 text-right">Inversión</th>}
-                                    <th className="px-6 py-4 rounded-r-lg">Quién Recibió</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {historial
-                                    .filter(h => h.id_obra === obraSeleccionada.id && h.tipo === 'SALIDA')
-                                    .map((mov, i) => {
-                                        
-                                        // Calcular la inversión de este movimiento específico
+                        {tabDetalleObra === 'MATERIALES' ? (
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold">
+                                    <tr>
+                                        <th className="px-6 py-4 rounded-l-lg">Fecha</th>
+                                        <th className="px-6 py-4">Producto</th>
+                                        <th className="px-6 py-4 text-center">Cantidad</th>
+                                        {rolUsuario === 'ADMIN' && <th className="px-6 py-4 text-right">Inversión</th>}
+                                        <th className="px-6 py-4 rounded-r-lg">Recibió</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {historial.filter(h => h.id_obra === obraSeleccionada.id && h.tipo === 'SALIDA').map((mov, i) => {
                                         const prod = materiales.find(m => m.id === mov.id_producto);
                                         const costoItem = prod ? prod.precio_costo : 0;
-                                        const inversionItem = mov.cantidad * costoItem;
-
                                         return (
-                                        <tr key={i} className="hover:bg-orange-50/50 transition-colors">
+                                        <tr key={i} className="hover:bg-slate-50 transition-colors">
                                             <td className="px-6 py-4 font-mono text-xs text-slate-500">{new Date(mov.fecha).toLocaleDateString('es-CL', { timeZone: 'UTC' })}</td>
                                             <td className="px-6 py-4 font-bold text-slate-700">{mov.nombre} <span className="font-normal text-slate-400 block text-xs mt-0.5">{mov.sku}</span></td>
                                             <td className="px-6 py-4 text-center font-bold text-lg text-slate-800 bg-slate-50/50 rounded-lg mx-2">{mov.cantidad}</td>
-                                            
-                                            {/* NUEVA CELDA CON MONTO DE INVERSIÓN */}
-                                            {rolUsuario === 'ADMIN' && (
-                                                <td className="px-6 py-4 text-right font-bold text-blue-600">${inversionItem.toLocaleString('es-CL')}</td>
-                                            )}
-
+                                            {rolUsuario === 'ADMIN' && <td className="px-6 py-4 text-right font-bold text-slate-600">${(mov.cantidad * costoItem).toLocaleString('es-CL')}</td>}
                                             <td className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wide">{mov.recibido_por || 'Sin registro'}</td>
                                         </tr>
                                     )})}
-                                {historial.filter(h => h.id_obra === obraSeleccionada.id && h.tipo === 'SALIDA').length === 0 && (
-                                    <tr><td colSpan={rolUsuario === 'ADMIN' ? "5" : "4"} className="text-center py-16 text-slate-400 italic">No se han enviado materiales a esta obra aún.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
+                                    {historial.filter(h => h.id_obra === obraSeleccionada.id && h.tipo === 'SALIDA').length === 0 && (<tr><td colSpan={rolUsuario === 'ADMIN' ? "5" : "4"} className="text-center py-16 text-slate-400 italic">No hay materiales en esta obra.</td></tr>)}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className="space-y-6">
+                                <form onSubmit={asignarAsistencia} className="bg-slate-50 p-6 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-end">
+                                    <div className="flex-1 w-full">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 block">Trabajador</label>
+                                        <select required className="w-full border border-slate-300 p-3 rounded-lg bg-white outline-none" value={formAsistencia.id_trabajador} onChange={e=>setFormAsistencia({...formAsistencia, id_trabajador: e.target.value})}>
+                                            <option value="">-- Seleccionar --</option>
+                                            {trabajadores.map(t => <option key={t.id} value={t.id}>{t.nombre} ({t.cargo})</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="w-full md:w-32">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 block">Días</label>
+                                        <input type="number" step="0.5" min="0.5" required className="w-full border border-slate-300 p-3 rounded-lg bg-white outline-none font-bold" value={formAsistencia.dias} onChange={e=>setFormAsistencia({...formAsistencia, dias: e.target.value})}/>
+                                    </div>
+                                    <button className="bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-6 rounded-lg w-full md:w-auto transition-all">ASIGNAR</button>
+                                </form>
+
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold">
+                                        <tr>
+                                            <th className="px-6 py-4 rounded-l-lg">Fecha Reg.</th>
+                                            <th className="px-6 py-4">Trabajador</th>
+                                            <th className="px-6 py-4 text-center">Días</th>
+                                            {rolUsuario === 'ADMIN' && <th className="px-6 py-4 text-right">Total Pago</th>}
+                                            <th className="px-6 py-4 text-center rounded-r-lg">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {asistencias.filter(a => a.id_obra === obraSeleccionada.id).map((asist, i) => (
+                                            <tr key={asist.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-6 py-4 font-mono text-xs text-slate-500">{new Date(asist.fecha_registro).toLocaleDateString('es-CL')}</td>
+                                                <td className="px-6 py-4 font-bold text-slate-700">{asist.nombre} <span className="font-normal text-slate-400 block text-xs mt-0.5">{asist.cargo}</span></td>
+                                                <td className="px-6 py-4 text-center font-bold text-lg text-slate-800">{asist.dias}</td>
+                                                {rolUsuario === 'ADMIN' && <td className="px-6 py-4 text-right font-bold text-rose-600">${(parseFloat(asist.dias) * asist.costo_diario).toLocaleString('es-CL')}</td>}
+                                                <td className="px-6 py-4 text-center"><button onClick={() => eliminarAsistencia(asist.id)} className="text-slate-300 hover:text-rose-600 transition p-2 rounded-full hover:bg-rose-50"><IconoTrash /></button></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 </div>
               )}
